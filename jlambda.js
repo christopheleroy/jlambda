@@ -333,7 +333,7 @@ function makeGrep(obj, ctx) {
 		return null;	
 	}
 
-	var selector = select ? function(x) { var m = {}; _.each(select, function(v,k) { m[v] = x[k]; }); return m; } :
+	var selector = select ? function(x) { var m = {}; _.each(select, function(v,k) { m[k] = x[v]; }); return m; } :
 	                        function(x) { return x; };
 
 	if(!ctx.failed) {
