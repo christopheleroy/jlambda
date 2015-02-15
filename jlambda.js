@@ -1,6 +1,7 @@
 var _ = require('lodash');
 
 
+// assert allows to program test and feed error messages when compiling a function
 function assert(ctx, msg, test,op) {
 
 	if(test=='isMap') {
@@ -20,24 +21,94 @@ function assert(ctx, msg, test,op) {
 		ctx.failed = true;
 	}
 }
-var context = function(data) {
-	if(_.isUndefined(data)) {
+
+// a  context is required for about everything
+var context = function(data, mode) {
+	var isArray = _.isArray(data);
+	var isScalar = _.isString(data) || _.isNumber(data);
+	
+
+	var failures = [];
+
+	if(isArray) {
+		if(data.length>0) {
+			if(_.isArray(data[0])) {
+				var nonArray = _.find(data, function(x)  { return !_.isArray(x); });
+				if(nonArray) failures.push('not an streamset');
+				        else mode = 'streamset';
+
+			}else if(_.isObject(data[0])) {
+				var nonObject = _.find(data, function(x) { return _.isArray(x) || !_.isObject(x); });
+				if(nonObject) failures.push('not a stream');
+				         else mode = 'stream';
+			}else if(_.isString(data[0]) || _.isNumber(data[0])) {
+				var nonScalar = _.find(data, function(x) { return !(_.isString(x) || _.isNumber(x))});
+				if(nonScalar) failures.push('not a stream of scalars');
+				         else mode = 'stream';
+			}
+		}else{
+			mode = 'stream';
+		}
+	}else if(isScalar) {
+		mode = 'scalar';
+	}else if(_.isObject(data)) {
+		var hasArrays = hasObjects = hasScalars = false;
+		for(var key in data) {
+			if(_.isArray(data[key])) {
+				hasArrays = true;
+			}else if(_.isObject(data[key])) {
+				hasObjects = true;
+			}else if(_.isString(data[key]) || _.isNumber(data[key])) {
+				hasScalars = true;
+			}else{
+				failures.push('map has surprising type');
+				break;
+			}
+			if( (hasArrays?1:0) + (hasObjects?1:0) + (hasScalars?1:0) > 1) {
+				failures.push('not a map of single type');
+			}
+		}
+		mode = hasArrays ? 'map' : (hasScalars || hasObjects ? 'object' : 'unsupported');
+		
+	}else if(_.isUndefined(data)) {
 		data = [];
+		mode = 'stream';
+	}else{
+		mode = 'unsupported';
+		failures.push("data is of undeterminate type");
 	}
-	return { inp: data, clone: true, outp: [], failures: [], failed: false};
+	var failed = failures.length>0;
+	return { inp: data, clone: true, outp: [], failures: failures, failed: failed, mode: mode};
 };
 exports.context = context;
 
 
- exports.plucker = function(plKey, ctx, instruction) {
-	ctx.outp = _.pluck(ctx.inp, plKey);
-	return ctx;
-};
-
+/** makePlucker: provide a function that will act as "pluck" on a stream of map elements, returning a stream (usually, a stream of scalars).
+ in scalar context, fail.
+ in map context, return single element for the key (possibly: undefined)
+ */
 var makePlucker = function (obj, ctx) {
+		// this operation will support the 'with:' wizardry
+	var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
+	if(ctx.failed) return null;
+
+
+	
 	var plKey = obj.pluck;
+
+
 	 var FN = function(aCtx) {
-		aCtx.outp = _.pluck(aCtx.inp, plKey);
+	 	aCtx = withFN(aCtx);
+		if(aCtx.failed) return aCtx;
+
+	 	if(aCtx.mode == 'stream') {
+			aCtx.outp = _.pluck(aCtx.inp, plKey);
+		}else if(aCtx.mode =='map' || aCtx.mode=='object') {
+			aCtx.outp = aCtx.inp[ plKey ];
+		}else{
+			aCtx.failed = true;
+			aCtx.failures.push("pluck in scalar mode ("+aCtx.mode+") is not supported.");
+		}
 		return aCtx;
 	};
 	FN.isFunctionated = true;
@@ -45,6 +116,14 @@ var makePlucker = function (obj, ctx) {
 };
 
 var makeChain = function(obj, ctx) {
+
+	// this operation will support the 'with:' wizardry
+	var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
+	if(ctx.failed) return null;
+
+
+	
+
 	if(_.isArray(obj.chain)) {
 		var funcs = _.map(obj.chain, function(f) { return functionator(f, ctx); });
 		if(ctx.failed) {
@@ -52,6 +131,9 @@ var makeChain = function(obj, ctx) {
 			return null;
 		}
 		var FN = function(aCtx) {
+			aCtx = withFN(aCtx);
+			if(aCtx.failed) return aCtx;
+
 			var funcsLength = funcs.length;
 			var cctx = context(aCtx.inp);
 			for(var i=0; i<funcsLength && !cctx.failed;i++, cctx = context(cctx.outp)) {
@@ -76,24 +158,22 @@ var makeChain = function(obj, ctx) {
 }
 
 
-exports.renamer = function(nameMap, ctx, instruction) {
-	var keys = _.keys(nameMap);
-	ctx.outp = _.map(ctx.inp, function(iZ) {
-			var Z = (ctx.clone ? _.clone(iZ) : iZ);
-			_.each(keys, function(k) {
-				Z[ nameMap[k] ] = Z[k];
-				delete Z[k];
-			});
-			return Z;
-	});
-	return ctx;
-};
-
+/** provide a renamer function, for a stream of json elements (maps)
+  in scalar context: fail
+  in map context: provide json element with the renamed attributes
+  */
 var makeRenamer = function(obj, ctx) {
 	var remap = obj.rename;
 	var defaults = obj.defaults;
 	var polite = obj.polite;
 	var doCloning = !!ctx.clone;
+	var withFN = null;
+
+	// this operation will support the 'with:' wizardry
+	var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
+	if(ctx.failed) return null;
+
+
 
 
 	if(!_.isObject(remap)) {
@@ -102,26 +182,40 @@ var makeRenamer = function(obj, ctx) {
 		return null;
 	}
 
+	var renamer = function(iZ) {
+		var Z = (doCloning? _.clone(iZ) : iZ);
+		_.each(remap, function(to,from) {
+			if(polite && (!_.isUndefined(Z[to]) || _.isUndefined(Z[from]))) 
+				return; // skip
+			Z[ to ] = Z[from];
+			if(_.isUndefined(Z[to]) && defaults) {
+				Z[to] = _.isObject(defaults) ? defaults[to] : defaults;
+			}
+			delete Z[from];
+		});
+		return Z;
+   };
+
 	var FN = function(aCtx) {
-		aCtx.outp = _.map(aCtx.inp, function(iZ) {
-			var Z = (doCloning? _.clone(iZ) : iZ);
-			_.each(remap, function(to,from) {
-				if(polite && (!_.isUndefined(Z[to]) || _.isUndefined(Z[from]))) 
-					return; // skip
-				Z[ to ] = Z[from];
-				if(_.isUndefined(Z[to]) && defaults) {
-					Z[to] = _.isObject(defaults) ? defaults[to] : defaults;
-				}
-				delete Z[from];
-			});
-			return Z;
-	   });
+		
+		aCtx = withFN(aCtx);
+		if(aCtx.failed) return aCtx;
+
+		if(aCtx.mode == 'stream') {
+			aCtx.outp = _.map(aCtx.inp, renamer);
+		}else if(aCtx.mode == 'map' || aCtx.mode=='object') {
+			aCtx.outp = renamer(aCtx.inp);
+		}else{
+			aCtx.failed = true;
+			aCtx.failures.push("renamer cannot be applied in mode " + aCtx.mode);
+		}
 		return aCtx;
 	};
 	FN.isFunctionated = true;
 	return FN;
 }
 
+/** provide an ArrayBuilder, which is a 'context transaparent' operation */
 var makeArrayBuilder = function(arr, ctx) {
 	var funcs = _.map(arr, function(f) { return functionator(f, ctx); });
 	if(ctx.failed) return null;
@@ -149,18 +243,27 @@ var makeArrayBuilder = function(arr, ctx) {
 
 var makeMapper = function(obj, ctx) {
 	var mapFN = functionator(obj.map);
-	var withFN = _.isUndefined(obj['with']) ? null : makePicker(obj['with'], ctx);
-
+	// this operation will support the 'with:' wizardry
+	var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
 	if(ctx.failed) return null;
+
+
 	if(mapFN) {
 
 		var FN = function(aCtx) {
-			if(withFN) {
-				aCtx = withFN(aCtx);
+			aCtx = withFN(aCtx);
+			if(aCtx.failed) return aCtx;
+			 debugger;
+
+			if(aCtx.mode != 'streamset' || aCtx.mode == 'stream') {
+				aCtx.failures.push("mapper can only be used in stream or streamset mode");
+				aCtx.failed=true;
+				return aCtx;
 			}
+
 			aCtx.outp = _.map(aCtx.inp, function(Z) {
 				var ctZ = context(Z);
-				mapFN(ctZ);
+				ctZ = mapFN(ctZ);
 				if(ctZ.failed) {
 					aCtx.failed = true;
 					aCtx.failures = aCtx.failures.concat(_.map(aCtx.failures), function(failure) { return "[mapper]"+failure; });
@@ -182,30 +285,190 @@ var makeMapper = function(obj, ctx) {
 exports.makeMapper = makeMapper;
 
 
+// for "with" operator, we can specify:
+// a number or a lambda parameter ({'$': 'a'}), or a literal ( {'#': 'bonjour'})
+function isPickable(x, ctx) {
+	if(_.isNumber(x)) {
+		return x == Math.floor(x) && x >=0;
+	}
+	if(_.isObject(x)) {
+		if(!_.isUndefined(x['$'])) {
+			return !_.isUndefined(ctx.lambda[ x['$'] ]);
+		}
+		if(!_.isUndefined( x['#'] )) {
+			return true;
+		}
+	}
+	return false;
+}
+
+
 var makePicker = function(picks, ctx) {
 	if(_.isArray(picks)) {
-		var bad = _.find(picks, function(x) { return !_.isNumber(x) || x < 0; });
-		if(bad) {
+		var bad = _.find(picks, function(x) { return !isPickable(x)});
+		if(bad || picks.length == 0) {
 			ctx.failed = true;
-			ctx.failures.push("with: must be an array of positive numbers");
+			ctx.failures.push("with: must be an array of positive numbers, literals or lambda parameters");
 			return null;
 		}
-		var pmax = _.max(picks);
-		var FN = function(aCtx) {
-			if(aCtx.inp.length < pmax) {
-				aCtx.failed = true;
-				aCtx.failures.push("Data is of size " + actx.inp.length + " but " + pmax + " is expected");
-				return aCtx;
-			}else{
-				var data = _.map(picks, function(i) { return aCtx.inp[i]; });
+		// we cannot mix numbers and lambda parameters
+		var numberOne = _.find(picks, function(x) {return _.isNumber(x); });
+		var lambdaOne = _.find(picks, function(x) {return _.isObject(x) && !_.isUndefined(x['$'])});
+		var literalOne = _.find(picks, function(x) {return _.isObject(x) && _.isUndefined(x['$']) && ! _.isUndefined(x['#']); });
+
+		if(lambdaOne && numberOne) {
+			ctx.failed = true;
+			ctx.failures.push("with: cannot mix lambda parameters and positional parameters");
+			return null;
+		}
+
+		if(numberOne) {
+			var literals = _.filter(picks, function(x) { return _.isObject(x) && !_.isUndefined(x['#'])});
+			var numbers = _.filter(picks, function(x) { return _.isNumber(x); });
+			var pmax = _.max(numbers);
+
+			var FN = function(aCtx) {
+
+				function mkSeedArray(size, value) {
+					var sa = [];
+					for(var i =0; i<size; i++) sa.push(value);
+					return sa;
+				}
+
+				if(aCtx.inp.length < pmax) {
+					aCtx.failed = true;
+					aCtx.failures.push("Data is of size " + actx.inp.length + " but " + pmax + " is expected");
+					return aCtx;
+				}else{
+					// In streamset - build a new streamset, expanding literals (if any) to the max length of all streams.
+					// at this point, do not handle the case of streams of different length
+					if(aCtx.mode == 'streamset') {
+						var maxLength = _.reduce(picks, function(ml, i) { 
+							if(_.isNumber(i) && _.isArray(aCtx.inp[i])) {
+								return aCtx.inp[i].length > ml ? aCtx.inp[i].length : ml; 
+							}else{
+								return ml;
+							}
+						},0);
+						var seedArray = [];
+						if(literalOne) { // if there is at least one literal spec, prepare a big array to use realize it
+							seedArray = mkSeedArray(maxLength, literalOne['#']);
+						}
+
+						var data = _.map(picks, function(i) { 
+							if(_.isNumber(i)) return aCtx.inp[i]; 
+							else if( !_.isUndefined(i['#'])  && literalOne) {
+								if(i['#'] == literalOne['#']) {
+									return seedArray;
+								}else{
+									var q = i['#'];
+									return _.map(seedArray, function() { return q; });
+								}
+							}
+							return undefined;
+						});
+
+						var nCtx = context(data);
+						nCtx.failed = aCtx.failed;
+						nCtx.failures = _.clone(aCtx.failures);
+						nCtx.lambda   = aCtx.lambda;
+						return nCtx;
+					}else if(aCtx.mode == 'stream') {
+						data = _.map(picks, function(i) {
+							if(_.isNumber(i)) return aCtx.inp[i];
+							if(i['#']) return i['#'];
+							return undefined;
+						});
+						var nCtx = context(data);
+						nCtx.failed = aCtx.failed;
+						nCtx.failures = _.clone(aCtx.failures);
+						nCtx.lambda   = aCtx.lambda;
+						return nCtx;
+					}else{
+						aCtx.failed = true;
+						aCtx.failures.push("cannot use 'with' in mode " + aCtx.mode);
+						return aCtx;
+					}
+				}
+
+			};
+			// this is not meant to be functionated
+			return FN;
+		}else if(lambdaOne) {
+
+			var badLambdas = _.filter(picks, function(i) { return _.isObject(i) && !_.isUndefined(i['$']) && _.isUndefined( ctx.lambda[ i['$'] ] ) ; });
+			if(badLambdas && badLambdas.length>0) {
+				ctx.failed = true;
+				ctx.failures.push("Lambda symbols are not declared: " + badLambdas.join(", "));
+				return null;
+			}
+			
+
+			var FN = function(aCtx) {
+				var lambda = aCtx.lambda;
+				var modes = {};
+				var dataPrep = _.map(picks, function(i) {
+					if(_.isObject(i) && !_.isUndefined(i['$'])) {
+						var l = i['$'];
+						if(_.isArray(l)) {
+							modes['stream'] = true;
+						}else if(_.isObject(l)) {
+							for(var f in l) {
+								if(_.isString(l[f]) || _.isNumber(l[f])) {
+									modes['object'] = true;
+								}else{
+									modes['map'] = true;
+								}
+								break;
+							}
+						}
+						return lambda[ l ];
+					}else if(_.isObject(i) && !_.isUndefined(i['#'])) {
+						return i['#'];
+					}
+				});
+
+				var data = dataPrep;
+
+				if(modes.stream && ! (modes.map || modes.object)) {
+					// when all data is streams, we want to be building a stream set - so let's extent the "literal ones" to streams.
+					if(literalOne) {
+						var maxLength = _.reduce(dataPrep, function(ml, strm, i) {
+							if(_.isObject(picks[i]) && !_.isUndefined(picks[i]['$']) && _.isArray(strm)) {
+								ml = strm.length > ml ? strm.length: ml;
+							}
+							return ml;
+						}, 0);
+						var seedArray = mkSeedArray(maxLength, literalOne['#']);
+						
+						data = _.map(dataPrep, function(dat, i) {
+							if(_.isObject(picks[i]) && !_.isUndefined(picks[i]['#'])) {
+								return (dat == literalOne['#'] ? seedArray : _.map(seedArray, function() { return dat; }));
+							}else{
+								return dat;
+							}
+						});
+					}
+				}
 				var nCtx = context(data);
 				nCtx.failed = aCtx.failed;
-				nCtx.failures = _.clone(aCtx.failures);
-				return nCtx;
-			}
-		};
-		// this is not meant to be functionated
-		return FN;
+				nCtx.lambda = aCtx.lambda;
+				nCtx.failures = aCtx.failures;
+				return nCtx;				
+			};
+			return FN;
+		}else if(literalOne) { // only literals
+			var constant = _.map(picks, function(x) { return x['#']});
+			var FN = function(aCtx) {
+				aCtx.inp = _.clone(constant);
+				return aCtx;
+			};
+			return FN;
+		}else{
+			ctx.failed = true;
+			ctx.failures.push("could not interpret this 'with' ");
+			return null;
+		}
 	}else{
 		if(_.isNumber(picks) && picks >=0) {
 			var pick1 = picks;
@@ -224,6 +487,38 @@ var makePicker = function(picks, ctx) {
 			};
 			// this is not meant to be functionated
 			return FN;
+		}else if(_.isObject(picks)) {
+			if(!_.isUndefined(picks['$'])) {
+				var l = picks['$'];
+				if(_.isUndefined(ctx.lambda[l])) {
+					ctx.failed = true;
+					ctx.failures.push("with: lambda element " + l + " was not declared in lambda statement");
+					return null;
+				}else{
+					var FN = function(aCtx) {
+						var nCtx = context( aCtx.lambda[l] );
+						nCtx.failed = aCtx.failed;
+						nCtx.lambda = aCtx.lambda;
+						nCtx.failures = aCtx.failures;
+						return nCtx;
+					};
+					return FN;
+				}
+			}else if(!_.isUndefined(picks['#'])) {
+				var c = picks['#'];
+				var FN = function(aCtx) {
+					var nCtx = context( _.clone(c) );
+					nCtx.failed = aCtx.failed;
+					nCtx.lambda = aCtx.lambda;
+					nCtx.failures = aCtx.failures;
+					return nCtx;
+				};
+				return FN;
+			}else{
+				ctx.failures.push("with: single pick that does not make sense ...");
+				ctx.failed = true;
+				return null;
+			}
 		}else{
 			ctx.failed =true;
 			ctx.failures.push("with: must be a positive number");
@@ -236,8 +531,18 @@ var makePicker = function(picks, ctx) {
 var makeSpecialOperation = function(obj, ctx) {
 	//f [upper, lower, length, num, join, regexp]  / set
 
+		// this operation will support the 'with:' wizardry
+	var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
+	if(ctx.failed) return null;
+
+
+	
+
 	function arrayfier(mFN) {
 		var FN =  function(aCtx) {
+			aCtx = withFN(aCtx);
+			if(aCtx.failed) return aCtx;
+
 			if(_.isArray(aCtx.inp)) {
 				aCtx.outp = _.map(aCtx.inp, mFN);
 			}else{
@@ -260,12 +565,12 @@ var makeSpecialOperation = function(obj, ctx) {
 				var rgp  = obj.mod ? new RegExp(obj.match, obj.mod) : new RegExp(obj.match);
 				var repl = obj.replace;
 				baseF = _.isUndefined(obj.replace) ?
-					function(x) { if(x) return !!(x.toString().match(rgp)); return false; } :
+					function(x) { if(x) { return !!(x.toString().match(rgp)); } return false; } :
 					function(x) { if(x) return x.toString().replace(rpg, repl); return undefined; }
 			
 			}else{
 				ctx.failed = true;
-				ctx.failures.push("for f:regex, the match parameter is required");
+				ctx.failures.push("for f:regexp, the match parameter is required");
 				return null;
 			}
 		}
@@ -320,7 +625,12 @@ function makeGrep(obj, ctx) {
 	var grep = obj.grep || obj.where;
 	var select = obj.select;
 
+	// this operation will support the 'with:' wizardry
+	var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
+	if(ctx.failed) return null;
 
+
+	
 	var noGrep = _.isUndefined(grep);
 
 	grep = noGrep ? grep : functionator(grep, ctx);
@@ -333,11 +643,18 @@ function makeGrep(obj, ctx) {
 		return null;	
 	}
 
+
+
 	var selector = select ? function(x) { var m = {}; _.each(select, function(v,k) { m[k] = x[v]; }); return m; } :
 	                        function(x) { return x; };
 
 	if(!ctx.failed) {
 		var FN = function(aCtx) {
+
+			aCtx = withFN(aCtx);
+			if(aCtx.failed) return aCtx;
+
+
 			var ctxGrep = context(aCtx.inp);
 			var tests = noGrep ? null : grep(ctxGrep);
 			if(!ctxGrep.failed) {
@@ -369,17 +686,25 @@ function makeConditional(obj, ctx) {
 	var elsse = obj.else;
 
 
+	// this operation will support the 'with:' wizardry
+	var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
+	if(ctx.failed) return null;
+
+
 
 	iff = functionator(iff, ctx);
-	console.log(ctx);
+	// console.log(ctx);
 	if(!ctx.failed) {
 		then = functionator(then, ctx);
-		console.log(ctx);
+		// console.log(ctx);
 		if(!ctx.failed) {
 			elsse = functionator(elsse, ctx) ;
-			console.log(ctx);
+			// console.log(ctx);
 			if(!ctx.failed) {
 				var FN = function(aCtx) { 
+					aCtx = withFN(aCtx);
+					if(aCtx.failed) return aCtx;
+
 					var ctxIFF = context(aCtx.inp);
 					var tests = iff(ctxIFF);
 					if(!ctxIFF.failed) {
@@ -517,9 +842,12 @@ exports.makeJoiner = function(obj, ctx) {
 	var join = obj.join;
 	var select = obj.select;
 	var onArray = obj.on;
-	var withFN = _.isUndefined(obj['with']) ? null : makePicker(obj['with'], ctx);
+	
 
+	// this operation will support the 'with:' wizardry
+	var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
 	if(ctx.failed) return null;
+
 	// 0. expected types
 	assert(ctx, 'join must be an array', 'isArray', join);
 	assert(ctx, 'on must be an array', 'isArray', onArray);
@@ -557,10 +885,9 @@ exports.makeJoiner = function(obj, ctx) {
 
 	var FN = function(aCtx) {
 
-		if(withFN) {
-			aCtx = withFN(aCtx);
-			if(aCtx.failed) return aCtx;
-		}
+		aCtx = withFN(aCtx);
+		if(aCtx.failed) return aCtx;
+
 		if(join.length == aCtx.inp.length) {
 			var keyContext = _.map( keyCalulators, function(calc, i){
 				var ctx_i = calc(context( aCtx.inp[i] ) );
@@ -589,7 +916,7 @@ exports.makeJoiner = function(obj, ctx) {
 			return aCtx;
 		}else{
 			aCtx.failed =true;
-			aCtx.failures.push(["join operation expect " + join.length + " paramers but " + aCtx.inp.length + " were passed"]);
+			aCtx.failures.push(["join operation expects " + join.length + " parameters but " + aCtx.inp.length + " were passed"]);
 			return aCtx;
 		}
 	};
