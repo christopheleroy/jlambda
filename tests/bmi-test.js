@@ -1,4 +1,5 @@
 var jlambda = require("../jlambda.js");
+var jltst   = require("./jlambda-test.js");
 var _ = require("lodash");
 
 var PROG = {pluck: 'since'};
@@ -37,52 +38,11 @@ var E  = [ 1978, 1980, 2002, 1989, 2003, 2001, 2001, 2003, 2004 ];
 var E2 =  [ 15893, 113, 25, 16, 9, 7, 7, 6, 5 ];
 
 
-function testing(prog, Results, diffFinder) {
-
-	var differences = _.reduce(Results.outp, diffFinder, []);
-
-	if(differences && differences.length>0) {
-		console.log(differences);
-		console.log("============= ERROR with ==================");
-		console.log(prog);
-	}else{
-		console.log("- success with " + JSON.stringify(prog));
-	}
-	console.log(" ------------------------------------------");
-}
-
-function singleArrayDiffFinder (E) {
-	return function(list, item,i) { if(item!=E[i]) { list.push(i); }  return list; };
-};
-
-function nArrayDiffFinder (E) {
-	return function (list, item, i) {
-		if(i> E.length) {
-			list.push([i, "too long"]);
-		}else if(_.isArray(item) ) {
-			var e = E[i];
-			list = _.reduce(item, function(ll, x, j) {
-				if(x != e[j]) {
-					ll.push([i,j]);
-				}
-				return ll;
-			}, list);
-		}else{
-			list.push(i);
-		}
-		return list;
-	}
-};
-
-testing(PROG, R,singleArrayDiffFinder(E));
+var PROG = {pluck: 'since'};
+jltst.testing(jlambda, PROG, DATA[0].lfs, jltst.singleDF(E));
 
 PROG= [ {pluck: 'since'}, {pluck: 'freq'} ];
-P = jlambda.functionator(PROG);
-C=jlambda.context(DATA[0].lfs);
-R = P(C);
-
-
-testing(PROG, R, nArrayDiffFinder([E,E2]));
+jltst.testing(jlambda, PROG, DATA[0].lfs, jltst.severalDF([E,E2]));
 
 
 PROG =  {chain: 
@@ -91,11 +51,7 @@ PROG =  {chain:
 		  ] 
 		};
 
-P = jlambda.functionator(PROG);
-C=jlambda.context(DATA[0].lfs);
-R = P(C);
-
-testing(PROG, R, nArrayDiffFinder([
+jltst.testing(jlambda, PROG, DATA[0].lfs, jltst.severalDF([
 	[ 'bone marrow involvement','bone mass index','bone marrow implantation' ],
     [ 1989, 2001, 2001 ] ]));
 
@@ -107,22 +63,27 @@ PROG = {chain:  [
 	      { map: {pluck: 'freq'} }
 	      ]
 	    };
-P = jlambda.functionator(PROG);
-C=jlambda.context(DATA[0].lfs);
-R = P(C);
-
-testing(PROG, R, nArrayDiffFinder([ [ 12, 3, 1 ], [ 7 ], [ 2, 2, 1, 1, 1 ] ]));
+jltst.testing(jlambda, PROG, DATA[0].lfs, jltst.severalDF([ [ 12, 3, 1 ], [ 7 ], [ 2, 2, 1, 1, 1 ] ]));
 
 PROG = { chain: [ {pluck: 'lfs'}, {map: {pluck: 'since'}}], with:0 };
-P = jlambda.functionator(PROG);
-C=jlambda.context(DATA);
-R = P(C);
-
-testing(PROG, R, nArrayDiffFinder([ E ] ));
+jltst.testing(jlambda, PROG, DATA, jltst.severalDF([ E ] ));
 
 PROG = { chain: [ {pluck: 'lfs', with: 0}, {map: {pluck: 'since'}}] };
-P = jlambda.functionator(PROG);
-C=jlambda.context(DATA);
-R = P(C);
+jltst.testing(jlambda,PROG, DATA, jltst.severalDF([ E ] ));
 
-testing(PROG, R, nArrayDiffFinder([ E ] ));
+
+
+PROG = { 
+	chain: [
+		[ {chain: [ {f: 'paste', sep: '+', with: ['freq', 'since']}, {f: 'paste', sep:' + '}, {reduce: {f: 'paste', sep: '  +  ' }}]},
+		  {chain: [ {f: 'id', with: ['freq', 'since']}, {f:'+'}, {f: 'paste', sep:' + ' }, {reduce: {f:'paste', sep: ' + ' }}] },
+		  {chain: [ { f:'id',  with: ['freq', 'since'] }, {f:'+'}, {f: '+' } ] }
+	    ],
+	     {reduce: {f: 'paste', sep: ' = '}}
+	]
+	};
+expected = '15893+1978  +  113+1980  +  25+2002  +  16+1989  +  9+2003  +  7+2001  +  7+2001  +  6+2003  +  5+2004 = 17871 + 2093 + 2027 + 2005 + 2012 + 2008 + 2008 + 2009 + 2009 = 34042'; 
+ 
+jltst.testing(jlambda, PROG, DATA[0].lfs, function(value) { return value != expected; });
+
+

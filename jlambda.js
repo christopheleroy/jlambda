@@ -29,58 +29,116 @@ var context = function(data, mode) {
 	
 
 	var failures = [];
+// debugger;
+	if(_.isUndefined(mode)) {
+		if(isArray) {
+			if(data.length>0) {
+				if(_.isArray(data[0])) {
+					var nonArray = _.find(data, function(x)  { return !_.isArray(x); });
+					if(nonArray) failures.push('not an streamset');
+					        else mode = 'streamset';
 
-	if(isArray) {
-		if(data.length>0) {
-			if(_.isArray(data[0])) {
-				var nonArray = _.find(data, function(x)  { return !_.isArray(x); });
-				if(nonArray) failures.push('not an streamset');
-				        else mode = 'streamset';
-
-			}else if(_.isObject(data[0])) {
-				var nonObject = _.find(data, function(x) { return _.isArray(x) || !_.isObject(x); });
-				if(nonObject) failures.push('not a stream');
-				         else mode = 'stream';
-			}else if(_.isString(data[0]) || _.isNumber(data[0])) {
-				var nonScalar = _.find(data, function(x) { return !(_.isString(x) || _.isNumber(x))});
-				if(nonScalar) failures.push('not a stream of scalars');
-				         else mode = 'stream';
-			}
-		}else{
-			mode = 'stream';
-		}
-	}else if(isScalar) {
-		mode = 'scalar';
-	}else if(_.isObject(data)) {
-		var hasArrays = hasObjects = hasScalars = false;
-		for(var key in data) {
-			if(_.isArray(data[key])) {
-				hasArrays = true;
-			}else if(_.isObject(data[key])) {
-				hasObjects = true;
-			}else if(_.isString(data[key]) || _.isNumber(data[key])) {
-				hasScalars = true;
+				}else if(_.isObject(data[0])) {
+					var nonObject = _.find(data, function(x) { return _.isArray(x) || !_.isObject(x); });
+					if(nonObject) failures.push('not a stream');
+					         else mode = 'stream';
+				}else if(_.isString(data[0]) || _.isNumber(data[0])) {
+					var nonScalar = _.find(data, function(x) { return !(_.isString(x) || _.isNumber(x))});
+					if(nonScalar) failures.push('not a stream of scalars');
+					         else mode = 'stream';
+				}
 			}else{
-				failures.push('map has surprising type');
-				break;
+				mode = 'stream';
 			}
-			if( (hasArrays?1:0) + (hasObjects?1:0) + (hasScalars?1:0) > 1) {
-				failures.push('not a map of single type');
+		}else if(isScalar) {
+			mode = 'scalar';
+		}else if(_.isObject(data)) {
+			var hasArrays = hasObjects = hasScalars = false;
+			for(var key in data) {
+				if(_.isArray(data[key])) {
+					hasArrays = true;
+				}else if(_.isObject(data[key])) {
+					hasObjects = true;
+				}else if(_.isString(data[key]) || _.isNumber(data[key])) {
+					hasScalars = true;
+				}else{
+					failures.push('map has surprising type');
+					break;
+				}
+				if( (hasArrays?1:0) + (hasObjects?1:0) + (hasScalars?1:0) > 1) {
+					failures.push('not a map of single type');
+				}
 			}
+			mode = hasArrays ? 'map' : (hasScalars || hasObjects ? 'object' : 'unsupported');
+			
+		}else if(_.isUndefined(data)) {
+			data = [];
+			mode = 'stream';
+		}else{
+			mode = 'unsupported';
+			failures.push("data is of undeterminate type");
 		}
-		mode = hasArrays ? 'map' : (hasScalars || hasObjects ? 'object' : 'unsupported');
-		
-	}else if(_.isUndefined(data)) {
-		data = [];
-		mode = 'stream';
-	}else{
-		mode = 'unsupported';
-		failures.push("data is of undeterminate type");
 	}
 	var failed = failures.length>0;
 	return { inp: data, clone: true, outp: [], failures: failures, failed: failed, mode: mode};
 };
 exports.context = context;
+
+// helper function to fail a context and return a null
+function nullForFailure(ctx, failure) {
+	ctx.failed = true;
+	ctx.failures.push(failure);
+	return null;
+}
+
+var makeZipper = function(obj, ctx) {
+		// this operation will support the 'with:' wizardry
+	var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
+	if(ctx.failed) return null;
+
+    var builder = null;
+	if(_.isArray(obj.zip)) {
+		if(obj.zip.length==0) {
+			builder = function(list) { return list;};
+		}else{
+			var notString = _.find(obj.zip, function(x) { return !_.isString(x); });
+			if(notString) {
+				ctx.failed = true;
+				return nullForFailure(ctx,"zip array contains non-strings");
+			}
+			var fields = _.clone(obj.zip);
+			function mkBuilder(fields) {
+				return function(list) { return _.reduce(fields, function(m, f, i) { if(f!=null) m[f] = list[i]; return m;},{}); };
+			}
+			builder = mkBuilder(fields);
+		}
+	}else{
+		return nullForFailure(ctx,"zip must be specified with an array");
+	}
+	var FN = function(aCtx) {
+		aCtx = withFN(aCtx);
+		if(aCtx.failed) return aCtx;
+
+		if(aCtx.mode == 'streamset') {
+			var maxLength = _.reduce(aCtx.inp, function(ml, list) { if(list && list.length && list.length>ml) ml = list.length; return ml; }, 0);
+			outp = [];
+			for(var i = 0; i< maxLength; i++) {
+				var list=_.reduce(aCtx.inp, function(row, inpList) { 
+					row.push( inpList[i] );
+					return row;
+				},[]);
+				outp.push( builder(list) );
+			}
+			aCtx.outp = outp;
+			return aCtx;
+		}else{
+			nullForFailure(aCtx, "input data is not a streamset");
+			return aCtx;
+		}
+	};
+	FN.isFunctionated = true;
+	return FN;
+}
 
 
 /** makePlucker: provide a function that will act as "pluck" on a stream of map elements, returning a stream (usually, a stream of scalars).
@@ -223,6 +281,7 @@ var makeArrayBuilder = function(arr, ctx) {
 	var FN = function(aCtx) {
 		var allCtx = _.map(funcs, function(f) {
 			var nCtx = context(aCtx.inp);
+
 			return f(nCtx);
 		});
 
@@ -253,9 +312,8 @@ var makeMapper = function(obj, ctx) {
 		var FN = function(aCtx) {
 			aCtx = withFN(aCtx);
 			if(aCtx.failed) return aCtx;
-			 debugger;
 
-			if(aCtx.mode != 'streamset' || aCtx.mode == 'stream') {
+			if(aCtx.mode != 'streamset' && aCtx.mode != 'stream') {
 				aCtx.failures.push("mapper can only be used in stream or streamset mode");
 				aCtx.failed=true;
 				return aCtx;
@@ -263,10 +321,11 @@ var makeMapper = function(obj, ctx) {
 
 			aCtx.outp = _.map(aCtx.inp, function(Z) {
 				var ctZ = context(Z);
+				debugger;
 				ctZ = mapFN(ctZ);
 				if(ctZ.failed) {
 					aCtx.failed = true;
-					aCtx.failures = aCtx.failures.concat(_.map(aCtx.failures), function(failure) { return "[mapper]"+failure; });
+					aCtx.failures = aCtx.failures.concat(_.map(ctZ.failures, function(failure) { return "[mapper]"+failure; }));
 					return undefined;
 				}else{
 					return ctZ.outp;
@@ -299,13 +358,15 @@ function isPickable(x, ctx) {
 			return true;
 		}
 	}
+	if(_.isString(x)) { return true;}
 	return false;
 }
 
 
 var makePicker = function(picks, ctx) {
+	debugger;
 	if(_.isArray(picks)) {
-		var bad = _.find(picks, function(x) { return !isPickable(x)});
+		var bad = _.find(picks, function(x) { return !isPickable(x,ctx)});
 		if(bad || picks.length == 0) {
 			ctx.failed = true;
 			ctx.failures.push("with: must be an array of positive numbers, literals or lambda parameters");
@@ -315,12 +376,19 @@ var makePicker = function(picks, ctx) {
 		var numberOne = _.find(picks, function(x) {return _.isNumber(x); });
 		var lambdaOne = _.find(picks, function(x) {return _.isObject(x) && !_.isUndefined(x['$'])});
 		var literalOne = _.find(picks, function(x) {return _.isObject(x) && _.isUndefined(x['$']) && ! _.isUndefined(x['#']); });
+		var stringOne = _.find(picks, function(x) { return _.isString(x); });
 
-		if(lambdaOne && numberOne) {
+		var failure = 
+		  (lambdaOne && numberOne) ? 'lambda parameters and positional parameters' :
+		  (lambdaOne && stringOne) ? 'lambda parameters and field-name parameters' :
+		  (numberOne && stringOne ) ? 'positional parameters and field-name parameters' : null;
+
+		if(failure) {
 			ctx.failed = true;
-			ctx.failures.push("with: cannot mix lambda parameters and positional parameters");
+			ctx.failures.push("with: cannot mix " + failure);
 			return null;
 		}
+
 
 		if(numberOne) {
 			var literals = _.filter(picks, function(x) { return _.isObject(x) && !_.isUndefined(x['#'])});
@@ -406,6 +474,7 @@ var makePicker = function(picks, ctx) {
 
 			var FN = function(aCtx) {
 				var lambda = aCtx.lambda;
+				debugger;
 				var modes = {};
 				var dataPrep = _.map(picks, function(i) {
 					if(_.isObject(i) && !_.isUndefined(i['$'])) {
@@ -457,6 +526,45 @@ var makePicker = function(picks, ctx) {
 				return nCtx;				
 			};
 			return FN;
+		}else if(stringOne) { // pick stuff by fieldname
+			// are we mixing strings and constants?
+			if(literalOne) {
+				// that is a little arduous - so, we'll take it slow
+				var choice = _.map(picks, function(x) { return _.isObject(x) ? { literal: true, val: x['#'] } : { literal: false, val: x }; });
+				var FN = function(aCtx) {
+					if(aCtx.mode == 'stream') {
+						var inp = _.map(aCtx.inp, function(item) {
+							return _.map(choice, function(ch) {
+								return ch.literal ? ch.val : item[ch.val];
+							});
+						});
+						aCtx.inp = inp;
+						return aCtx;
+					}else{
+						aCtx.failed = true;
+						aCtx.failures.push("with: operation with field name supported only in stream mode");
+						return aCtx;
+					}
+				};
+				return FN;
+			}else{
+				// only field names
+				var fNames = _.clone(picks);
+				var FN = function(aCtx) {
+					if(aCtx.mode=='stream') {
+						var inp = _.map(aCtx.inp, function(item) {
+							return _.map(fNames, function(n) { return item[n]; });
+						});
+						aCtx.inp = inp;
+						return aCtx;
+					}else{
+						aCtx.failed =true;
+						aCtx.failures.push("with: operation with field names supported only in stream mode");
+						return aCtx;
+					}
+				};
+				return FN;
+			}
 		}else if(literalOne) { // only literals
 			var constant = _.map(picks, function(x) { return x['#']});
 			var FN = function(aCtx) {
@@ -543,7 +651,7 @@ var makeSpecialOperation = function(obj, ctx) {
 			aCtx = withFN(aCtx);
 			if(aCtx.failed) return aCtx;
 
-			if(_.isArray(aCtx.inp)) {
+			if(aCtx.mode == 'streamset' || aCtx.mode == 'stream') {
 				aCtx.outp = _.map(aCtx.inp, mFN);
 			}else{
 				aCtx.outp = mFN(aCtx.inp);
@@ -560,6 +668,25 @@ var makeSpecialOperation = function(obj, ctx) {
 			obj.f == 'num' ? function(x) { return parseFloat(x); } : 
 			null;
 
+
+		if(obj.f == 'shift') {
+			var mFN = function(item) {
+				if(item.length && item.length>0) {
+					return item[0];
+				};
+				return undefined;
+			};
+			return arrayfier(mFN)
+		}else if(obj.f == 'pop') {
+			var mFN = function(item) {
+				if(item.length) {
+					return item[item.length-1];
+				}
+				return undefined;
+			};
+			return arrayfier(mFN);
+		}
+
 		if(!baseF && obj.f == 'regexp') {
 			if(obj.match) {
 				var rgp  = obj.mod ? new RegExp(obj.match, obj.mod) : new RegExp(obj.match);
@@ -574,8 +701,62 @@ var makeSpecialOperation = function(obj, ctx) {
 				return null;
 			}
 		}
+		if(!baseF && obj.f == 'paste') {
+			var sep = obj.sep || '';
+
+			var mFN = function(item) {
+				if(item.join) { return item.join(sep); }
+				return item;
+			}
+			return arrayfier(mFN);
+		}
+		if(!baseF) {
+			var ff = obj.f;
+			if(ff=='+' || ff=='*' || ff=='min' || ff == 'max' || ff == '-' || ff == '/') {
+				var ops = 
+					ff == '+'   ? { st: 0, red: function(x,y) { return x+y; } } :
+					ff == '*'   ? { st: 1, red: function(x,y) { return x*y; } } : 
+					ff == 'min' ? { st: null, red: function(x,y) { return x==null ? y : ( x < y ? x : y); } } : 
+					ff == 'max' ? { st: null, red: function(x,y) { return x==null? y: (x>y ? x : y ); }} : 
+					ff == '-'   ? { st: null, red: function(x,y) { return x==null? y : x-y; } } :
+					ff == '/'   ? { st: null, red: function(x,y) { return x==null ? y : x/y } }:
+					null;
+				if(ops) {
+					var fst = ops.st;
+					var fred = ops.red;
+					var mFN = function(item) {
+						return _.reduce(item, fred, fst);
+					};
+					var FN = function(aCtx) {
+						aCtx = withFN(aCtx);
+						if(aCtx.failed) return aCtx;
+						if(aCtx.mode == 'stream' || aCtx.mode == 'pair' || aCtx.mode == 'array') {
+							aCtx.outp = mFN(aCtx.inp);
+							return aCtx;
+						}else if(aCtx.mode == 'streamset') {
+							aCtx.outp = _.map(aCtx.inp, mFN);
+							return aCtx;
+						}else{
+							nullForFailure(aCtx, "only stream and streamset are supported");
+							return aCtx;
+						}
+					};
+					FN.isFunctionated = true;
+					return FN;
+				}
+			}
+		}
+		if(!baseF) {
+			if(obj.f == 'id') {
+				var mFN = function(item) { 
+					return item;
+				};
+				return arrayfier(mFN);
+			}
+		}
+
 		if(baseF) {
-			if(obj.field || obj.fields) {
+			if(obj.field || obj.fields) { 
 				var fields = obj.fields || obj.field;
 				if(_.isArray(fields)) {
 					fields = _.reduce(fields, function(m,x) { m[x] = x; return m; }, {});
@@ -680,6 +861,27 @@ function makeGrep(obj, ctx) {
 	return null;
 }
 
+function makeDeLambda(obj, ctx) {
+	var symbol = obj['$'];
+	if(ctx.lambda && !_.isUndefined(ctx.lambda[ symbol ])) {
+		var FN = function(aCtx) {
+			if(aCtx.lambda) {
+				aCtx.outp = aCtx.lambda[symbol];
+			}else{
+				aCtx.failed = true;
+				aCtx.failures.push("lambda expression compromsied");
+			}
+			return aCtx;
+		};
+		FN.functionated = true;
+		return FN;
+	}else if(ctx.lambda) {
+		ctx.failed = true;
+		ctx.failures.push("lambda: parameter " + symbol + " was not declared.");
+		return null;
+	}
+}
+
 function makeConditional(obj, ctx) {
 	var iff = obj.if;
 	var then = obj.then;
@@ -744,36 +946,165 @@ function makeConditional(obj, ctx) {
 	}
 	return null;
 }
+var makeLambda = function(obj, ctx) {
+	var lambda = obj.lambda;
+	var value = obj.value;
 
+	if(_.isUndefined(value)) {
+		ctx.failed = true;
+		ctx.failures.push("lambda: the value parameter must be specified");
+		return null;
+	}
+	if(_.isArray(lambda)) {
+		var noStringOne = _.find(lambda, function(x) { return ! _.isString(x); });
+		if(noStringOne) {
+			ctx.failed = true;
+			ctx.failures.push("lambda: the array must be only strings...");
+			return;
+		}
+		if(!ctx.lambda) { 
+			ctx.lambda = _.reduce(lambda, function(m, x, i) { m[x] = i; return m;}, {});
+		}else{
+			_.each(lambda, function(x,i) { 
+				if(_.isUndefined(ctx.lambda[x])) {
+					ctx.lambda[x] = i;
+				}else{
+					ctx.failed = true;
+					ctx.failures.push("lambda: the variable " + x + " cannot be re-used");
+				}
+			});
+			if(ctx.failed) { 
+				return null;
+			}
+		}
+		var mFN = functionator(value, ctx);
+		if(ctx.failed) {
+			return null;
+		}
+		var FN = function(aCtx) {
+			if(!_.isArray(aCtx.inp) || aCtx.inp.length < lambda.length) {
+				aCtx.failed=true;
+				aCtx.failures.push("lambda context expects " + lambda.length + " streams or " + lambda.length +  " long array in input. The input is not an array of that size");
+				return aCtx;
+			}
+			if(!aCtx.lambda) { aCtx.lambda = {} }
+			aCtx.lambda = _.reduce(lambda, function(m, x, i) {
+				if(x != '_') m[x] = aCtx.inp[i];
+				return m;
+			}, aCtx.lambda);
+			return mFN(aCtx);
+		};
+		FN.functionated = true;
+		return FN;
+	}else if(_.isString(lambda)) {
+		if(!ctx.lambda) ctx.lambda = {};
+
+		ctx.lambda[lambda] = '?';
+
+		var mFN = functionator(value, ctx);
+		if(ctx.failed) return null;
+
+		var FN = function(aCtx) {
+			if(!aCtx.lambda) { 
+				aCtx.lambda = {};
+			}
+			aCtx.lambda[lambda] = aCtx.inp;
+			return mFN(aCtx);
+		};
+		FN.isFunctionated = true;
+		return FN;
+	}else{
+		ctx.failed = true;
+		ctx.failures.push("lambda: only arrays are supported");
+		return null;
+	}
+};
+
+
+var makeReducer = function(obj, ctx) {
+	// this operation will support the 'with:' wizardry
+	var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
+	if(ctx.failed) return null;
+
+	if(obj.reduce) {
+		var redFN = functionator(obj.reduce, ctx);
+		if(!redFN) {
+			return nullForFailure(ctx, "reduce must be functionable");
+		}
+		var startingWith = obj.start;
+		var skipFailed = !!obj.skipFailed;
+		var FN = function(aCtx) {
+			if(aCtx.mode = 'stream') {
+				var outp = _.reduce(aCtx.inp, function(X, item) {
+					// console.log([X,item]);
+					if(_.isUndefined(X)) {
+						return item;
+					}
+					var ctx = context([X,item], 'pair');
+					// console.log(ctx);	
+					var octx = redFN(ctx);
+
+					if(octx.failed) {
+						if(skipFailed) return X;
+						aCtx.failed = true;
+						aCtx.failures.push(octx.failures);
+						return undefined;
+					}
+					return octx.outp;
+				}, startingWith);
+				aCtx.outp = outp;
+				return aCtx;
+			}else{
+				nullForFailure(aCtx, "only dataset in stream mode are supporting for reduce operations");
+				return aCtx;
+			}
+		};
+		FN.isFunctionated = true;
+		return FN;
+	}
+	return nullForFailure(ctx, "bug in makeReducer");
+};
 
 var functionator = function(obj,ctx) {
 	if(obj && obj.isFunctionated) {
 		return obj;
 	}
 	if(!ctx) { ctx = context([]); }
+	var FN = null;
 
 	if(_.isArray(obj)) {
-		return makeArrayBuilder(obj, ctx);
+		FN = makeArrayBuilder(obj, ctx);
 	}else if(_.isObject(obj)) {
 		if(obj.pluck) {
-			return makePlucker(obj,ctx);
+			FN =  makePlucker(obj,ctx);
 		}else if(obj.rename) {
-			return makeRenamer(obj,ctx);
+			FN =  makeRenamer(obj,ctx);
 		}else if(obj.map) {
-			return makeMapper(obj,ctx);
+			FN =  makeMapper(obj,ctx);
+		}else if(obj.reduce) {
+			FN =  makeReducer(obj, ctx);
 		}else if(obj.if) {
-			return makeConditional(obj,ctx);
+			FN = makeConditional(obj,ctx);
 		}else if(obj.join) { 
-			return makeJoin(obj, ctx);
+			FN =  makeJoin(obj, ctx);
 		}else if(obj.chain) {
-			return makeChain(obj, ctx);
+			FN =  makeChain(obj, ctx);
+		}else if(obj.zip) {
+			FN =  makeZipper(obj, ctx);
 		}else if(obj.f) {
-			return makeSpecialOperation(obj, ctx);
+			FN =  makeSpecialOperation(obj, ctx);
 		}else if(obj.grep || ((obj.select || obj.where) && ! obj.join)) {
-			return makeGrep(obj,ctx);
+			FN =  makeGrep(obj,ctx);
+		}else if(obj.lambda) {
+			FN =  makeLambda(obj, ctx);
+		}else if(!_.isUndefined(obj['$'])) {
+			FN =  makeDeLambda(obj, ctx);
 		}
 	} 
-	return null;
+	if(FN != null) { 
+		FN._code_ = _.clone(obj); 
+	}
+	return FN;
 };
 exports.functionator = functionator;
 
