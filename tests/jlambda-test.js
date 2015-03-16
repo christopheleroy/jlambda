@@ -23,8 +23,10 @@ function testing(jlambda, prog, dataIn,  diffFinder) {
 
 	var rc = 1;
 	
+	// guess the structure of the results -- 
+	var _ctx = jlambda.context(Results.outp);
 
-	if(DAT.mode == 'scalar' || DAT.mode == 'object') {
+	if(_ctx.mode == 'scalar' || _ctx.mode == 'object') {
 		if(diffFinder(Results.outp)) {
 			console.log(Results.outp);
 		}else{
@@ -46,7 +48,7 @@ function testing(jlambda, prog, dataIn,  diffFinder) {
 	}else{
 		console.log("- success with " + JSON.stringify(prog));
 	}
-	console.log(" ------------------------------------------");
+	console.log(" ----------------------------------------------------------------------------------");
 	return rc;
 }
 
@@ -56,6 +58,7 @@ function singleArrayDiffFinder (E) {
 
 function nArrayDiffFinder (E) {
 	return function (list, item, i) {
+		debugger;
 		if(i> E.length) {
 			list.push([i, "too long"]);
 		}else if(_.isArray(item) ) {

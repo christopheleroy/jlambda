@@ -65,11 +65,10 @@ var context = function(data, mode) {
 					failures.push('map has surprising type');
 					break;
 				}
-				if( (hasArrays?1:0) + (hasObjects?1:0) + (hasScalars?1:0) > 1) {
-					failures.push('not a map of single type');
-				}
+
 			}
-			mode = hasArrays ? 'map' : (hasScalars || hasObjects ? 'object' : 'unsupported');
+			
+			mode = hasArrays && (! (hasScalars || hasObjects) ) ? 'map' : (hasScalars || hasObjects ? 'object' : 'unsupported');
 			
 		}else if(_.isUndefined(data)) {
 			data = [];
@@ -141,6 +140,43 @@ var makeZipper = function(obj, ctx) {
 }
 
 
+// prepare a function that extract data from a complex object along a path...
+function makeExtractorStep(path) {
+	if(_.isString(path) || _.isNumber(path)) {
+		return function(obj,ctx) {
+		  	try {
+				return obj[path];
+			}catch(err) {
+				ctx.failed =true;
+				ctx.failures.push("extractor: " + err);
+				return null;
+			}
+		};
+	}else if (_.isArray(path)) {
+		var steps = _.map(path, makeExtractorStep);
+		return function(obj, ctx) {
+			for(var i=0; i<steps.length;i++) {
+				obj = steps[i] (obj, ctx);
+			}
+			return obj;
+		}
+	}else if(_.isObject(path)) {
+		var steps = _.reduce(path, function(map, p,f) {
+			map[f] = makeExtractorStep(p);
+			return map;
+		},{});
+		return function(obj,ctx) {
+			return _.reduce(steps, function(outObj, p_x,f) {
+				outObj[f] = p_x(obj, ctx);
+				return outObj;
+			},{});
+		};
+	}else{
+		return function(x,ctx) { ctx.failed=true; ctx.failures.push("null step in extractor"); return null; }
+	}
+	
+}
+
 /** makePlucker: provide a function that will act as "pluck" on a stream of map elements, returning a stream (usually, a stream of scalars).
  in scalar context, fail.
  in map context, return single element for the key (possibly: undefined)
@@ -154,15 +190,26 @@ var makePlucker = function (obj, ctx) {
 	
 	var plKey = obj.pluck;
 
+	var isPlain = _.isString(plKey);
+	var extractor = isPlain ? null: makeExtractorStep(plKey);
+
 
 	 var FN = function(aCtx) {
 	 	aCtx = withFN(aCtx);
 		if(aCtx.failed) return aCtx;
 
 	 	if(aCtx.mode == 'stream') {
-			aCtx.outp = _.pluck(aCtx.inp, plKey);
+	 		if(isPlain) {
+				aCtx.outp = _.pluck(aCtx.inp, plKey);
+			}else{
+				aCtx.outp = _.map(aCtx.inp, function(x) { return extractor(x, aCtx); });
+			}
 		}else if(aCtx.mode =='map' || aCtx.mode=='object') {
-			aCtx.outp = aCtx.inp[ plKey ];
+			if(isPlain) {
+				aCtx.outp = aCtx.inp[ plKey ];
+			}else{
+				aCtx.outp = extractor(aCtx.inp, aCtx);
+			}
 		}else{
 			aCtx.failed = true;
 			aCtx.failures.push("pluck in scalar mode ("+aCtx.mode+") is not supported.");
@@ -321,7 +368,7 @@ var makeMapper = function(obj, ctx) {
 
 			aCtx.outp = _.map(aCtx.inp, function(Z) {
 				var ctZ = context(Z);
-				debugger;
+				// debugger;
 				ctZ = mapFN(ctZ);
 				if(ctZ.failed) {
 					aCtx.failed = true;
@@ -364,7 +411,7 @@ function isPickable(x, ctx) {
 
 
 var makePicker = function(picks, ctx) {
-	debugger;
+	// debugger;
 	if(_.isArray(picks)) {
 		var bad = _.find(picks, function(x) { return !isPickable(x,ctx)});
 		if(bad || picks.length == 0) {
@@ -474,7 +521,7 @@ var makePicker = function(picks, ctx) {
 
 			var FN = function(aCtx) {
 				var lambda = aCtx.lambda;
-				debugger;
+				// debugger;
 				var modes = {};
 				var dataPrep = _.map(picks, function(i) {
 					if(_.isObject(i) && !_.isUndefined(i['$'])) {
@@ -627,6 +674,17 @@ var makePicker = function(picks, ctx) {
 				ctx.failed = true;
 				return null;
 			}
+		}else if(_.isString(picks)) {
+			var FN = function(aCtx) {
+				var nCtx = context(aCtx.inp);
+				if(nCtx.mode == 'object') {
+					nCtx.outp = nCtx.inp[picks]
+				}else{
+					nCtx.outp = _.pluck(nCtx.inp, picks);
+				}
+				return nCtx;
+			};
+			return FN;
 		}else{
 			ctx.failed =true;
 			ctx.failures.push("with: must be a positive number");
@@ -644,7 +702,7 @@ var makeSpecialOperation = function(obj, ctx) {
 	if(ctx.failed) return null;
 
 
-	
+	// debugger;
 
 	function arrayfier(mFN) {
 		var FN =  function(aCtx) {
@@ -668,15 +726,30 @@ var makeSpecialOperation = function(obj, ctx) {
 			obj.f == 'num' ? function(x) { return parseFloat(x); } : 
 			null;
 
+		if(obj.f == '>n' || obj.f == '>=n' || obj.f == '<n' || obj.f == '=<n' || obj.f == '==n') {
+			var N = obj.n;
+			if(_.isUndefined(N)) {
+				return nullForFailure(ctx, "for " + obj.f + ", parameter n must be defined");
+			}
+			baseF =
+				obj.f == '>n' ? function(x) { return x>N; } : 
+				obj.f == '<n' ? function(x) { return x<N; } : 
+				obj.f == '>=n' ? function(x) { return x>=N; } : 
+				obj.f == '=<n' ? function(x) { return x<=N; } : 
+				obj.f == '==n' ? function(x) { return x == N; }: 
+				baseF;
+		}
 
 		if(obj.f == 'shift') {
 			var mFN = function(item) {
+				// debugger;
 				if(item.length && item.length>0) {
 					return item[0];
 				};
 				return undefined;
 			};
-			return arrayfier(mFN)
+			return arrayfier(mFN);
+
 		}else if(obj.f == 'pop') {
 			var mFN = function(item) {
 				if(item.length) {
@@ -716,7 +789,7 @@ var makeSpecialOperation = function(obj, ctx) {
 				var ops = 
 					ff == '+'   ? { st: 0, red: function(x,y) { return x+y; } } :
 					ff == '*'   ? { st: 1, red: function(x,y) { return x*y; } } : 
-					ff == 'min' ? { st: null, red: function(x,y) { return x==null ? y : ( x < y ? x : y); } } : 
+					ff == 'min' ? { st: null, red: function(x,y) {  return x==null ? y : ( x < y ? x : y); } } : 
 					ff == 'max' ? { st: null, red: function(x,y) { return x==null? y: (x>y ? x : y ); }} : 
 					ff == '-'   ? { st: null, red: function(x,y) { return x==null? y : x-y; } } :
 					ff == '/'   ? { st: null, red: function(x,y) { return x==null ? y : x/y } }:
@@ -880,6 +953,92 @@ function makeDeLambda(obj, ctx) {
 		ctx.failures.push("lambda: parameter " + symbol + " was not declared.");
 		return null;
 	}
+}
+
+function makeAndOr(obj, ctx) {
+	var OR = obj.or;
+	var AND = obj.and;
+	var skipUndef = obj.undefSkip;
+
+
+	var tests = _.isUndefined(OR)? AND : OR;
+	
+	if((!_.isUndefined(OR)) && (!_.isUndefined(AND))) {
+		return nullForFailure(ctx, "function can be both an or and and");
+	}
+
+
+	var isOR = _.isUndefined(AND);
+	var isAND = ! isOR;
+
+	// how will we make all the ORs and ANDs after all is tested? 
+	// we will reduce them with the below reducer
+	var reducer = isOR ? 
+		(!!skipUndef ? function(boolRed, bool_i) { if(_.isUndefined(bool_i) || _.isNull(bool_i) ){
+														return boolRed; 
+													}else{
+														return boolRed || bool_i;
+													}
+						} : function(boolRed, bool_i) { return boolRed || bool_i; } ): 
+		(!!skipUndef ? function(boolRed, bool_i) { if(_.isUndefined(bool_i) || _.isNull(bool_i) ){
+														return boolRed; 
+													}else{
+														return boolRed && bool_i;
+													}
+						} : function(boolRed, bool_i) { return boolRed && bool_i; });
+
+	var reducerInit = isAND;
+
+
+	if(!_.isArray(tests)) {
+		return nullForFailure(ctx, (isOR ? "or: " : "and: ") + " operates on array of functionables only ");
+	}
+	
+	var testFNs = _.map(tests, function(t) { return functionator(t,ctx); });
+	if(ctx.failed) return null;
+
+	var zipFN = functionator({zip:[]}, ctx);
+
+	var FN = function(aCtx) {
+		var allCtx = _.map(testFNs, function(test) {
+			var iCtx = context(aCtx.inp, aCtx.mode);
+			return test(iCtx);
+		});
+		_.each(allCtx, function(cx,i) {
+			if(cx.failed) {
+				aCtx.failed = true;
+				var i1th = "(" (i+1) + (i==0? 'st' : i==1? 'nd' : i==2? 'rd': 'th') + " test) ";
+				aCtx.failures = aCtx.failures.concat( _.map(cx.failures, function(ff) { return i1th + ff; }));
+			}
+		});
+		if(allCtx.failed) {
+			return aCtx;
+		}
+		var boolArray = _.reduce(allCtx, function(list, iCtx){
+			list.push(iCtx.outp);
+			return list;
+		},[]);
+
+		var boolCtx = context(boolArray);
+		if(boolCtx.mode == 'streamset') {
+			var zipped = zipFN(boolCtx);
+			if(boolCtx.failed) {
+				aCtx.failures = aCtx.failures.concat(_.map(boolCtx.failed, function(ff) { return "[zipping test results]" + ff; }));
+				aCtx.failed =true;
+				return aCtx;
+			}
+			var outp = _.map(zipped.outp, function(op) {
+				return _.reduce(op, reducer, reducerInit);
+			});
+			aCtx.outp = outp;
+			return aCtx;
+		}else{
+			aCtx.outp = _.reduce(boolArray, reducer, reducerInit);
+			return aCtx;
+		}
+	};
+	FN.isFunctionated = true;
+	return FN;
 }
 
 function makeConditional(obj, ctx) {
@@ -1099,6 +1258,8 @@ var functionator = function(obj,ctx) {
 			FN =  makeLambda(obj, ctx);
 		}else if(!_.isUndefined(obj['$'])) {
 			FN =  makeDeLambda(obj, ctx);
+		}else if(obj.or || obj.and) {
+			FN = makeAndOr(obj,ctx);
 		}
 	} 
 	if(FN != null) { 
