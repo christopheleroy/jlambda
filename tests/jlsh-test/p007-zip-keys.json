@@ -2,8 +2,11 @@
               ["ef", "GH"], 
               ["alpha", "beta"]], 
 
+
+ "comments": "zip, with keys,  can be used to be build a stream of objects from a stream of arrays",
+
  "lambda" : { "zip": ["1st", "2nd", "3rd"]	},
- 
+
  "expect" : [ {"1st": "ab", "2nd": "ef", "3rd": "alpha" },
               {"1st": "CD", "2nd": "GH", "3rd": "beta"  }  ]
  }

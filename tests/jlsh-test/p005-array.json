@@ -1,4 +1,8 @@
 {"payload": [ ["ab", "cd"], ["ef", "gh"]], 
+
  "lambda" : [ { "f": "paste", "sep":"-"}, {"f": "paste", "sep":"/" } ],
+
+ "comments": "an array of lambda expressions is a lambda expression itself, it creates ... arrays ...",
+
  "expect" : [ [ "ab-cd", "ef-gh" ], ["ab/cd", "ef/gh" ] ]
  }

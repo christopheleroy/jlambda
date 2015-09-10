@@ -1,0 +1,33 @@
+{"payload":
+	[
+	   [ {"name": "John", "age": 33, "level": "A" },
+	     {"name": "Jake", "age": 32, "level": "A" },
+	     {"name": "Joe", "age": 45, "level": "C"},
+	     {"name": "Jeff", "age": 34, "level":"Z"},
+	     {"name": "Jane", "age": 54, "level": "Q"},
+	     {"name": "Julie", "age": 23, "level":"B"},
+	     {"name": "Jabba", "age": 542, "level":"X"},
+	     {"name": "Justin", "age":29, "level":"Z"}
+	   ], 
+
+	   [ {"lvl": "A", "q": "alpha" },
+	     {"lvl": "B", "q": "beta"  },
+	     {"lvl": "C", "q": "gamma-c" },
+	     {"lvl": "D", "q": "delta" }, 
+	     {"lvl": "E", "q": "epsilon"},
+	     {"lvl": "F", "q": "phi"   },
+	     {"lvl": "G", "q": "gamma" },
+	     {"lvl": "Q", "q": "colon" },
+	     {"lvl": "X", "q": "Xi"},
+	     {"lvl": "Y", "q": "yep"},
+	     {"lvl": "Z", "q": "zeta"}]
+	],
+
+
+
+ "comments": "pluck handles only streams, with-underscore can transform a streamset in a stream by picking the stream by position (0-based)",         
+
+ "lambda": {"pluck": "name", "with": {"_": 0} },
+
+ "expect": ["John","Jake","Joe","Jeff","Jane","Julie","Jabba","Justin"]
+}

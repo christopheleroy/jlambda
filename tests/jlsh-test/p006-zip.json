@@ -2,7 +2,10 @@
               ["ef", "GH"], 
               ["alpha", "beta"]], 
 
+  "comments": "zip is a python (perhaps R) idiom to reorganize data, similar to a  transpose in its simplest form",
+
  "lambda" : { "zip": []	},
+ 
  "expect" : [ ["ab", "ef", "alpha"], 
               ["CD", "GH", "beta"] ]
  }

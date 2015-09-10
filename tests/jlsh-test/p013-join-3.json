@@ -1,0 +1,57 @@
+{"payload":
+	[
+	   [ {"name": "John", "age": 33, "level": "A" },
+	     {"name": "Jake", "age": 32, "level": "A" },
+	     {"name": "Joe", "age": 45, "level": "C"},
+	     {"name": "Jeff", "age": 34, "level":"Z"},
+	     {"name": "Bob", "age": 67  },
+	     {"name": "Bill", "age":76, "level": "R"},
+	     {"name": "Jane", "age": 54, "level": "Q"},
+	     {"name": "Julie", "age": 23, "level":"B"},
+	     {"name": "Jabba", "age": 542, "level":"X"},
+	     {"name": "Justin", "age":29, "level":"Z"}
+	   ], 
+
+	   [ {"lvl": "A", "q": "alpha", "c":"white"},
+	     {"lvl": "B", "q": "beta" },
+	     {"lvl": "C", "q": "gamma-c", "c": "green" },
+	     {"lvl": "D", "q": "delta" ,"c": "dark"}, 
+	     {"lvl": "E", "q": "epsilon"},
+	     {"lvl": "F", "q": "phi"   },
+	     {"lvl": "G", "q": "gamma" },
+	     {"lvl": "Q", "q": "colon" },
+	     {"lvl": "X", "q": "Xi"},
+	     {"lvl": "Y", "q": "yep"},
+	     {"lvl": "Z", "q": "zeta", "c":"brown"}],
+
+	   [ {"n": "A", "f": 100},
+	      {"n": "B", "f": 201},
+	      {"n": "C", "f": 19},
+	      {"n": "Z",  "f": 1000},
+	      {"n":"T", "f":65},
+	      {"n":"R", "f":9001}
+	   ]
+	],
+
+"lambda" : {"join": ["a","b", "c"],
+              "on": [ {"pluck":"level"}, {"pluck": "lvl"}, {"pluck": "n"}], 
+              "outer": false,
+              "select": {"a": {"Name":"name", "Age": "age"}, "b": {"Group": "q", "Color": "c"}, "c": {"Factor": "f"} }
+           },
+
+
+"comments": "a join operation on 3 datasets. They have to have a common key (eg. you join the 2 first datasets on the same key as with the 3rd dataset)",
+"comment2": " Note that Bob and Bill are excluded because this is an inner join  (outer:false)",
+
+
+"expect": [
+ 	{"Name":"John","Age":33,"Group":"alpha","Color":"white","Factor":100},
+ 	{"Name":"Jake","Age":32,"Group":"alpha","Color":"white","Factor":100},
+ 	{"Name":"Joe","Age":45,"Group":"gamma-c","Color":"green","Factor":19},
+ 	{"Name":"Jeff","Age":34,"Group":"zeta","Color":"brown","Factor":1000},
+ 	{"Name":"Justin","Age":29,"Group":"zeta","Color":"brown","Factor":1000},
+ 	{"Name":"Julie","Age":23,"Group":"beta","Factor":201}
+
+
+ ]
+}

@@ -1,4 +1,10 @@
 {"payload": [ ["ab", "cd"], ["ef", "gh"]], 
+
+ 
+ "comments": "the paste (function) works on streamsets, where each stream is concatenaded with a separator. Paste is an R idiom and jLambda's paste has similar idiosyncracies",
+
  "lambda" : { "f": "paste", "sep":"-"},
+ 
  "expect" : [ "ab-cd", "ef-gh" ]
+
  }

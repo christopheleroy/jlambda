@@ -1,0 +1,55 @@
+{"payload":
+	[
+	   [ {"name": "John", "age": 33, "level": "A" },
+	     {"name": "Jake", "age": 32, "level": "A" },
+	     {"name": "Joe", "age": 45, "level": "C"},
+	     {"name": "Jeff", "age": 34, "level":"Z"},
+	     {"name": "Bob", "age": 67  },
+	     {"name": "Bill", "age":76, "level": "R"},
+	     {"name": "Jane", "age": 54, "level": "Q"},
+	     {"name": "Julie", "age": 23, "level":"B"},
+	     {"name": "Jabba", "age": 542, "level":"X"},
+	     {"name": "Justin", "age":29, "level":"Z"}
+	   ], 
+
+	   [ {"lvl": "A", "q": "alpha", "c":"white"},
+	     {"lvl": "B", "q": "beta" },
+	     {"lvl": "C", "q": "gamma-c", "c": "green" },
+	     {"lvl": "D", "q": "delta" ,"c": "dark"}, 
+	     {"lvl": "E", "q": "epsilon"},
+	     {"lvl": "F", "q": "phi"   },
+	     {"lvl": "G", "q": "gamma" },
+	     {"lvl": "Q", "q": "colon" },
+	     {"lvl": "X", "q": "Xi"},
+	     {"lvl": "Y", "q": "yep"},
+	     {"lvl": "Z", "q": "zeta", "c":"brown"}]
+	],
+
+"lambda" : {"join": ["a","b"],
+              "on": [ {"pluck":"level"}, {"pluck": "lvl"} ], 
+              "outer": true,
+              "select": {"a": {"Name":"name", "Age": "age"}, "b": {"Group": "q", "Color": "c"}}
+           },
+
+
+"comment1": "a join operation joins two datasets. the [a,b] array is giving names to the datasets for later referencing in the 'select'",
+"comment2": "this join operation is a strict join, note that Bob and Bill do not have a level found in the 2nd dataset but are part of the output because of the outer: true option",
+"comment3": "the select map defines the value to be returned and how to name them",
+"comment4" : "the on array is two arrays of functionables. The function is applied to each dataset. The output of this function is the 'join' key",
+"comment5" : "hence any expression can be used for joins",
+"comment6" : "also, it is expected that this works just the same for 3 datasets, or more...",
+
+
+"expect": [
+	{"Name":"John","Age":33,"Group":"alpha","Color":"white"},
+	{"Name":"Jake","Age":32,"Group":"alpha","Color":"white"},
+	{"Name":"Joe","Age":45,"Group":"gamma-c","Color":"green"},
+	{"Name":"Jeff","Age":34,"Group":"zeta","Color":"brown"},
+	{"Name":"Justin","Age":29,"Group":"zeta","Color":"brown"},
+	{"Name":"Bob","Age":67},{"Name":"Bill","Age":76},
+	{"Name":"Jane","Age":54, "Group":"colon"},
+	{"Name":"Julie","Age":23,"Group":"beta"},
+	{"Name":"Jabba","Age":542,"Group":"Xi"}
+
+ ]
+}

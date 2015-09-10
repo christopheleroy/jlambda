@@ -1,0 +1,27 @@
+{"payload":
+	[
+	    {"name": "John", "age": 33, "level": "A" },
+	     {"name": "Jake", "age": 32, "level": "A" },
+	     {"name": "Joe", "age": 45, "level": "C"},
+	     {"name": "Jeff", "age": 34, "level":"Z"},
+	     {"name": "Jane", "age": 54, "level": "Q"},
+	     {"name": "Julie", "age": 23, "level":"B"},
+	     {"name": "Jabba", "age": 542, "level":"X"},
+	     {"name": "Justin", "age":29, "level":"Z"}
+	  ],
+
+ "comments": "pluck can also be used to extract field from a stream, and rename them",         
+
+ "lambda": {"pluck": {"person":"name", "alleged-age":"age"} },
+
+
+  "expect": 
+  [  {"person":"John","alleged-age":33},
+     {"person":"Jake","alleged-age":32},
+     {"person":"Joe","alleged-age":45},
+     {"person":"Jeff","alleged-age":34},
+     {"person":"Jane","alleged-age":54},
+     {"person":"Julie","alleged-age":23},
+     {"person":"Jabba","alleged-age":542},
+     {"person":"Justin","alleged-age":29} ]
+ }

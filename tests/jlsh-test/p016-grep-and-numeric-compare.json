@@ -1,0 +1,21 @@
+{"payload":
+
+	   [ {"name": "John", "age": 33, "level": "A" },
+	     {"name": "Jake", "age": 32, "level": "A" },
+	     {"name": "Joe", "age": 45, "level": "C"},
+	     {"name": "Jeff", "age": 34, "level":"Z"},
+	     {"name": "Jane", "age": 54, "level": "Q"},
+	     {"name": "Julie", "age": 23, "level":"B"},
+	     {"name": "Jabba", "age": 542, "level":"X"},
+	     {"name": "Justin", "age":29, "level":"Z"}
+	   ], 
+
+
+ "lambda": {"grep": {"and": [ {"f":">n", "n": 32, "from": "age"}, 
+                              {"f": "=<n", "n": 50, "from": "age"} ]}},
+
+ "expect": 
+    [{"name":"John","age":33,"level":"A"},
+     {"name":"Joe","age":45,"level":"C"},
+     {"name":"Jeff","age":34,"level":"Z"} ]
+}

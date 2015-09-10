@@ -1,0 +1,17 @@
+{"payload": [ ["ab", "cd"], 
+              ["ef", "gh"], 
+              ["alpha", "beta"]], 
+
+ "comments": "A chain is a series of steps where the result of a step is fed as input for the result of the next step ...",
+
+ "lambda" : {"chain": [ {"zip": []	}, 
+                        {"f": "paste", "sep":"-"}
+                      ]
+             },
+
+ "step0-output" : 
+            [ ["ab", "ef", "alpha"], 
+              ["cd", "gh", "beta"] ],
+
+  "expect": ["ab-ef-alpha", "cd-gh-beta"]
+ }
