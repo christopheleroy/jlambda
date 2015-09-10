@@ -1,0 +1,4 @@
+{"payload":[1,2,3,4],
+  "lambda":{"f":"min"},
+  "expect": 1 }
+  

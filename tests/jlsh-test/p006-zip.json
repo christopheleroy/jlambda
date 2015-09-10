@@ -1,0 +1,8 @@
+{"payload": [ ["ab", "CD"], 
+              ["ef", "GH"], 
+              ["alpha", "beta"]], 
+
+ "lambda" : { "zip": []	},
+ "expect" : [ ["ab", "ef", "alpha"], 
+              ["CD", "GH", "beta"] ]
+ }

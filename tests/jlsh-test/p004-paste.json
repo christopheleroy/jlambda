@@ -1,0 +1,4 @@
+{"payload": [ ["ab", "cd"], ["ef", "gh"]], 
+ "lambda" : { "f": "paste", "sep":"-"},
+ "expect" : [ "ab-cd", "ef-gh" ]
+ }
