@@ -1,0 +1,18 @@
+{"payload": [0,1,2,3,4],
+
+ "comment": "This is rather abrupt for a 3rd script introduction, but that might give insights",
+ "comment-": "as to how jLambda is (1) functional and operator oriented, (2) not intended to be a general purpose language",
+ "comment+": "and (3) still relatively rich in possibilities..."
+
+ "lambda": 
+    {"chain": 
+      [
+         [{"f":"id"},{"f":"id"}],
+         {"zip":[]},
+         {"map": {"f": "*"} }
+      ]
+    },
+
+
+  "expect": [0,1,4,9,16]
+ }
