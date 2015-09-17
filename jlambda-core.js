@@ -23,14 +23,14 @@ function assert(ctx, msg, test,op) {
 }
 
 // a  context is required for about everything
-var context = function(data, mode) {
+var context = function(data, mode, doneFN) {
 	var isArray = _.isArray(data);
 	var isScalar = _.isString(data) || _.isNumber(data);
 	
 
 	var failures = [];
 // debugger;
-	if(_.isUndefined(mode)) {
+	if(_.isUndefined(mode)) { 
 		if(isArray) {
 			if(data.length>0) {
 				if(_.isArray(data[0])) {
@@ -52,7 +52,7 @@ var context = function(data, mode) {
 			}
 		}else if(isScalar) {
 			mode = 'scalar';
-		}else if(_.isObject(data)) {
+		}else if(_.isObject(data)) { 
 			var hasArrays = hasObjects = hasScalars = false;
 			for(var key in data) {
 				if(_.isArray(data[key])) {
@@ -69,6 +69,10 @@ var context = function(data, mode) {
 			}
 			
 			mode = hasArrays && (! (hasScalars || hasObjects) ) ? 'map' : (hasScalars || hasObjects ? 'object' : 'unsupported');
+			if(mode == 'unsupported') {
+				console.log("Unsupported mode for context:");
+				console.log(data);
+			}
 			
 		}else if(_.isUndefined(data)) {
 			data = [];
@@ -79,9 +83,33 @@ var context = function(data, mode) {
 		}
 	}
 	var failed = failures.length>0;
-	return { inp: data, clone: true, outp: [], failures: failures, failed: failed, mode: mode};
+	var xx = { inp: data, clone: true, outp: [], failures: failures, failed: failed, mode: mode};
+	if(_.isFunction(doneFN)) {
+		doneFN.bind(xx);
+		xx.done = doneFN;
+	}
+	
+	return xx;
 };
 exports.context = context;
+
+
+// for the "with" construct, we'll have to resort to the below...
+function contextNewInput(ctx, newInput) {
+
+	var ntx = context(newInput);
+	ntx.outp = ctx.outp;
+	ntx.failures = ctx.failures;
+	ntx.failed   = ctx.failed;
+	ntx.clone    = ctx.clone;
+	if(ctx.lambda) ntx.lambda = ctx.lambda;
+	if(ctx.done) {
+		ctx.done.bind(ntx);
+		ntx.done = ctx.done;
+	}
+
+	return ntx;
+}
 
 // helper function to fail a context and return a null
 function nullForFailure(ctx, failure) {
@@ -90,8 +118,19 @@ function nullForFailure(ctx, failure) {
 	return null;
 }
 
+var makeDebugger = function(obj, ctx) {
+	
+	var FN1 = functionator(obj,ctx);
+	var FN0 = function(aCtx) {
+		debugger;
+		return FN1(aCtx);
+	}
+	return FN0;
+}
+
 var makeZipper = function(obj, ctx) {
 		// this operation will support the 'with:' wizardry
+	var debug = !!obj.debug;
 	var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
 	if(ctx.failed) return null;
 
@@ -115,12 +154,13 @@ var makeZipper = function(obj, ctx) {
 		return nullForFailure(ctx,"zip must be specified with an array");
 	}
 	var FN = function(aCtx) {
+		if(debug) { debugger; }
 		aCtx = withFN(aCtx);
 		if(aCtx.failed) return aCtx;
 
 		if(aCtx.mode == 'streamset') {
 			var maxLength = _.reduce(aCtx.inp, function(ml, list) { if(list && list.length && list.length>ml) ml = list.length; return ml; }, 0);
-			outp = [];
+			var outp = [];
 			for(var i = 0; i< maxLength; i++) {
 				var list=_.reduce(aCtx.inp, function(row, inpList) { 
 					row.push( inpList[i] );
@@ -177,6 +217,26 @@ function makeExtractorStep(path) {
 	
 }
 
+
+// how "spreading" will work with pluck ... 
+function makeReduceSpreader(spreadKey) {
+	return function(list, item) {
+		if(!item) return list;
+		var sublist = item[spreadKey];
+		if(sublist && _.isArray(sublist)) {
+			var template = _.clone(item);
+			delete template[spreadKey];
+			_.each(sublist, function(x) {
+				var instance = _.clone(template);
+				instance[spreadKey] = x;
+				list.push(instance);
+			});
+		}else{
+			list.push(item);
+		}
+		return list;
+	}
+}
 /** makePlucker: provide a function that will act as "pluck" on a stream of map elements, returning a stream (usually, a stream of scalars).
  in scalar context, fail.
  in map context, return single element for the key (possibly: undefined)
@@ -187,14 +247,22 @@ var makePlucker = function (obj, ctx) {
 	if(ctx.failed) return null;
 
 
+
 	
 	var plKey = obj.pluck;
+	var spreading = !!obj.spread
+	if(spreading && !(_.isString(obj.spread))) {
+		ctx.failures.push("spread must be a string");
+		ctx.failed = true;
+		return null;
+	}
+	var spreader = spreading ? makeReduceSpreader(obj.spread) : null;
 
 	var isPlain = _.isString(plKey);
 	var extractor = isPlain ? null: makeExtractorStep(plKey);
 
 
-	 var FN = function(aCtx) {
+	 var FN = function(aCtx) { 
 	 	aCtx = withFN(aCtx);
 		if(aCtx.failed) return aCtx;
 
@@ -214,6 +282,9 @@ var makePlucker = function (obj, ctx) {
 			aCtx.failed = true;
 			aCtx.failures.push("pluck in scalar mode ("+aCtx.mode+") is not supported.");
 		}
+		if(spreading) {
+			aCtx.outp = _.reduce(aCtx.outp, spreader, []);
+		}
 		return aCtx;
 	};
 	FN.isFunctionated = true;
@@ -224,6 +295,7 @@ var makeChain = function(obj, ctx) {
 
 	// this operation will support the 'with:' wizardry
 	var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
+	var debug = !!obj.debugger;
 	if(ctx.failed) return null;
 
 
@@ -241,7 +313,9 @@ var makeChain = function(obj, ctx) {
 
 			var funcsLength = funcs.length;
 			var cctx = context(aCtx.inp);
+			cctx.lambda = aCtx.lambda;
 			for(var i=0; i<funcsLength && !cctx.failed;i++, cctx = context(cctx.outp)) {
+				if(debug) { debugger; }
 				cctx = funcs[i](cctx);
 				if(cctx.failed) {
 					aCtx.failures = aCtx.failures.concat(_.map(cctx.failures, function(ff,ii) { return "[chain step "+ ii +"] " + ff; }));
@@ -348,7 +422,7 @@ var makeArrayBuilder = function(arr, ctx) {
 
 
 var makeMapper = function(obj, ctx) {
-	var mapFN = functionator(obj.map);
+	var mapFN = functionator(obj.map,ctx);
 	// this operation will support the 'with:' wizardry
 	var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
 	if(ctx.failed) return null;
@@ -411,7 +485,9 @@ function isPickable(x, ctx) {
 
 
 var makePicker = function(picks, ctx) {
-	// debugger;
+
+
+	
 	if(_.isArray(picks)) {
 		var bad = _.find(picks, function(x) { return !isPickable(x,ctx)});
 		if(bad || picks.length == 0) {
@@ -420,7 +496,7 @@ var makePicker = function(picks, ctx) {
 			return null;
 		}
 		// we cannot mix numbers and lambda parameters
-		var numberOne = _.find(picks, function(x) {return _.isNumber(x); });
+		var numberOne = !_.isUndefined( _.find(picks, function(x) {return _.isNumber(x); }) );
 		var lambdaOne = _.find(picks, function(x) {return _.isObject(x) && !_.isUndefined(x['$'])});
 		var literalOne = _.find(picks, function(x) {return _.isObject(x) && _.isUndefined(x['$']) && ! _.isUndefined(x['#']); });
 		var stringOne = _.find(picks, function(x) { return _.isString(x); });
@@ -566,11 +642,7 @@ var makePicker = function(picks, ctx) {
 						});
 					}
 				}
-				var nCtx = context(data);
-				nCtx.failed = aCtx.failed;
-				nCtx.lambda = aCtx.lambda;
-				nCtx.failures = aCtx.failures;
-				return nCtx;				
+				return nCtx = contextNewInput(data);				
 			};
 			return FN;
 		}else if(stringOne) { // pick stuff by fieldname
@@ -585,8 +657,8 @@ var makePicker = function(picks, ctx) {
 								return ch.literal ? ch.val : item[ch.val];
 							});
 						});
-						aCtx.inp = inp;
-						return aCtx;
+						
+						return contextNewInput(aCtx, inp);
 					}else{
 						aCtx.failed = true;
 						aCtx.failures.push("with: operation with field name supported only in stream mode");
@@ -602,8 +674,7 @@ var makePicker = function(picks, ctx) {
 						var inp = _.map(aCtx.inp, function(item) {
 							return _.map(fNames, function(n) { return item[n]; });
 						});
-						aCtx.inp = inp;
-						return aCtx;
+						return contextNewInput(aCtx, inp);
 					}else{
 						aCtx.failed =true;
 						aCtx.failures.push("with: operation with field names supported only in stream mode");
@@ -615,8 +686,7 @@ var makePicker = function(picks, ctx) {
 		}else if(literalOne) { // only literals
 			var constant = _.map(picks, function(x) { return x['#']});
 			var FN = function(aCtx) {
-				aCtx.inp = _.clone(constant);
-				return aCtx;
+				return contextNewInput(aCtx, constant);
 			};
 			return FN;
 		}else{
@@ -634,10 +704,7 @@ var makePicker = function(picks, ctx) {
 					return aCtx;
 				}else{
 					var data = aCtx.inp[pick1];
-					var nCtx = context([data]);
-					nCtx.failed = aCtx.failed
-					nCtx.failures = _.clone(aCtx.failures);
-					return nCtx;
+					return contextNewInput(aCtx, data);
 				}
 			};
 			// this is not meant to be functionated
@@ -651,10 +718,7 @@ var makePicker = function(picks, ctx) {
 					return null;
 				}else{
 					var FN = function(aCtx) {
-						var nCtx = context( aCtx.lambda[l] );
-						nCtx.failed = aCtx.failed;
-						nCtx.lambda = aCtx.lambda;
-						nCtx.failures = aCtx.failures;
+						var nCtx = contextNewInput(aCtx,  aCtx.lambda[l] );
 						return nCtx;
 					};
 					return FN;
@@ -662,27 +726,42 @@ var makePicker = function(picks, ctx) {
 			}else if(!_.isUndefined(picks['#'])) {
 				var c = picks['#'];
 				var FN = function(aCtx) {
-					var nCtx = context( _.clone(c) );
-					nCtx.failed = aCtx.failed;
-					nCtx.lambda = aCtx.lambda;
-					nCtx.failures = aCtx.failures;
+					var nCtx = contextNewInput(aCtx, _.clone(c) );
 					return nCtx;
 				};
 				return FN;
+			}else if(!_.isUndefined(picks['_'])) {
+				var pos = picks['_'];
+				if(_.isNumber(pos)) {
+					var FN = function(aCtx) {
+						if(_.isArray(aCtx.inp)) {
+							var data = aCtx.inp[pos];
+							return contextNewInput(aCtx, data);
+						}else{
+							aCtx.failures.push("with: on position " + pos + ", but data is not a stream or streamset");
+							aCtx.failed = true;
+						}
+						return aCtx;
+					};
+					return FN;
+				}else{
+					ctx.failures.push("with: on position ('_') must be numeric [got: " + pos + "]");
+					ctx.failed =true;
+					return null;
+				}
 			}else{
 				ctx.failures.push("with: single pick that does not make sense ...");
 				ctx.failed = true;
 				return null;
 			}
 		}else if(_.isString(picks)) {
+			var c= picks;
 			var FN = function(aCtx) {
-				var nCtx = context(aCtx.inp);
-				if(nCtx.mode == 'object') {
-					nCtx.outp = nCtx.inp[picks]
+				if(aCtx.mode == 'object' || aCtx.mode == 'map') {
+					return contextNewInput(aCtx, aCtx.inp[c]);
 				}else{
-					nCtx.outp = _.pluck(nCtx.inp, picks);
+					return contextNewInput(aCtx, _.pluck(aCtx.inp, c));
 				}
-				return nCtx;
 			};
 			return FN;
 		}else{
@@ -692,12 +771,14 @@ var makePicker = function(picks, ctx) {
 		}
 	}
 }
+exports.unfunctionatedPicker = makePicker;
 
 
 var makeSpecialOperation = function(obj, ctx) {
 	//f [upper, lower, length, num, join, regexp]  / set
 
 		// this operation will support the 'with:' wizardry
+	var debug = obj.debugger;
 	var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
 	if(ctx.failed) return null;
 
@@ -705,7 +786,9 @@ var makeSpecialOperation = function(obj, ctx) {
 	// debugger;
 
 	function arrayfier(mFN) {
+		var objCache  =debug? obj : null;
 		var FN =  function(aCtx) {
+			if(debug) { debugger; console.log(objCache); }
 			aCtx = withFN(aCtx);
 			if(aCtx.failed) return aCtx;
 
@@ -778,7 +861,7 @@ var makeSpecialOperation = function(obj, ctx) {
 			var sep = obj.sep || '';
 
 			var mFN = function(item) {
-				if(item.join) { return item.join(sep); }
+				if(item && item.join) { return item.join(sep); }
 				return item;
 			}
 			return arrayfier(mFN);
@@ -1075,14 +1158,14 @@ function makeConditional(obj, ctx) {
 							valsREV.push(v.length);
 							v.push(aCtx.inp[i]);
 						});
-						ctxTHEN = context(valsTHEN);
-						ctxELSSE = context(valsELSSE);
+						var ctxTHEN = context(valsTHEN);
+						var ctxELSSE = context(valsELSSE);
 						then(ctxTHEN);
 						elsse(ctxELSSE);
 						if(ctxTHEN.failed || ctxELSSE.failed) {
 							aCtx.failed = true;
-							if(ctxTHEN)  aCtx.failures = aCtx.failures.concat( _.map(ctxTHEN.failures, function (x) { return "in 'then': " + x}));
-							if(ctxELSSE) aCtx.failures = aCtx.failures.contact(_.map(ctxELSSE.failures, function(x) { return "in 'else': " + x }));
+							if(ctxTHEN)  aCtx.failures = aCtx.failures.concat( _.map(ctxTHEN.failures, function (x) { return "in 'then': " + x;}));
+							if(ctxELSSE) aCtx.failures = aCtx.failures.contact(_.map(ctxELSSE.failures, function(x) { return "in 'else': " + x; }));
 							return aCtx;
 						}else{
 							var outp = _.map(ctxIFF.outp, function(b,i) {
@@ -1224,11 +1307,30 @@ var makeReducer = function(obj, ctx) {
 	return nullForFailure(ctx, "bug in makeReducer");
 };
 
+var preFunctionators = [];
+exports.addPrefunctionator = function(checker, fnator) {
+	var z = {};
+	z.check = checker;
+	z.FN = fnator;
+	preFunctionators.push(z);
+
+}
+
 var functionator = function(obj,ctx) {
 	if(obj && obj.isFunctionated) {
 		return obj;
 	}
-	if(!ctx) { ctx = context([]); }
+	if(!ctx) throw new Error("Context must be passed");
+	
+
+	for(var i =0; i< preFunctionators.length;i++) {
+		if(preFunctionators[i].check(obj)) {
+			return preFunctionators[i].FN(obj,ctx, functionator);
+		}
+	}
+
+
+	
 	var FN = null;
 
 	if(_.isArray(obj)) {
@@ -1245,7 +1347,7 @@ var functionator = function(obj,ctx) {
 		}else if(obj.if) {
 			FN = makeConditional(obj,ctx);
 		}else if(obj.join) { 
-			FN =  makeJoin(obj, ctx);
+			FN =  makeJoiner(obj, ctx);
 		}else if(obj.chain) {
 			FN =  makeChain(obj, ctx);
 		}else if(obj.zip) {
@@ -1260,6 +1362,8 @@ var functionator = function(obj,ctx) {
 			FN =  makeDeLambda(obj, ctx);
 		}else if(obj.or || obj.and) {
 			FN = makeAndOr(obj,ctx);
+		}else if(obj.debug) {
+			FN = makeDebugger(obj.debug, ctx);
 		}
 	} 
 	if(FN != null) { 
@@ -1280,22 +1384,34 @@ var cartesian2 = function(a1, a2) {
 };
 exports.cartesian2 = cartesian2;
 
-var longCartesian = function(as) {
+var longCartesian = function(as, outer) { 
 	var empty = _.isUndefined(as) || _.isNull(as) || as.length == 0;
-	if(!empty) empty = _.find(as, function(x) { return _.isUndefined(x) || _.isNull(x) || x.length ==0 } );
 	if(empty) return [];
+	var empties = _.filter(as, function(x) { return _.isUndefined(x) || _.isNull(x) || x.length ==0 } );
+	if(empties.length>0) debugger;
+	if(empties.length>0 && !outer) return [];
+
 
 	var outs = _.clone(as[0]);
 	for(var i = 1; i<as.length; i++) {
-		outs = exports.cartesian2(outs, as[i]);
-		if(i>1) {
-			outs = _.map(outs, function(x) {
-				var y = _.clone(x[0]);
-				y.push(x[1]);
-				return y;
-			});
+		if(!(_.isUndefined(as[i])||_.isNull(as[i]) || as[i].length==0)) {
+			outs = exports.cartesian2(outs, as[i]);
+			if(i>1) {
+				outs = _.map(outs, function(x) {
+					var y = _.clone(x[0]);
+					y.push(x[1]);
+					return y;
+				});
+			}
+		}else{ 
+			if(i==1) {
+				// when 2nd array has no match - we still need convert to an array like in cartesian2
+				outs = _.map(outs, function(x) { return [ x, null ]; });
+			}
 		}
 	}
+
+	
 	return outs;
 };
 exports.longCartesian = longCartesian;
@@ -1304,12 +1420,12 @@ exports.longCartesian = longCartesian;
 function makeMerger(join, select) {
 	if(select) {
 		return function(cartOuts) {
-			return _.map(cartOuts, function(outs){
+			return _.map(cartOuts, function(outs){ 
 				var out = {};
 				_.each(join, function(k,i) {
-					var sels = seletct[k];
-					_.each(sels, function(to,from){
-						out[to] = outs[i][from];
+					var sels = select[k];
+					_.each(sels, function(from,to){
+						if(outs[i]) out[to] = outs[i][from];
 					});
 				});
 				return out;
@@ -1321,7 +1437,7 @@ function makeMerger(join, select) {
 				var out = {};
 				_.each(join,function(k,i){
 					_.each(_.keys(outs[i]), function(x) {
-						to[x] = outs[i][x];
+						if(outs[i]) to[x] = outs[i][x];
 					});
 				});
 				return out;
@@ -1330,11 +1446,13 @@ function makeMerger(join, select) {
 	}
 }
 
-exports.makeJoiner = function(obj, ctx) {
+function makeJoiner(obj, ctx) {
 	var join = obj.join;
 	var select = obj.select;
 	var onArray = obj.on;
+	var outer = !! obj.outer;
 	
+
 
 	// this operation will support the 'with:' wizardry
 	var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
@@ -1343,33 +1461,31 @@ exports.makeJoiner = function(obj, ctx) {
 	// 0. expected types
 	assert(ctx, 'join must be an array', 'isArray', join);
 	assert(ctx, 'on must be an array', 'isArray', onArray);
-	if(select) assert(ctx, 'select must be a map', isMap, select);
+	if(select) assert(ctx, 'select must be a map', 'isMap', select);
 	if(ctx.failed) return null;
 	
 	// 1. all members of select must be names that are in join
-	var selectKeys = _.keys(select);
+	var selectKeys = _.keys(select); 
 	assert(ctx, 'select must use keys from join', 
-		_.intersection(selectKeys, join).length == _.min(join.length, selectKeys.length));
+		_.intersection(selectKeys, join).length == _.min([join.length, selectKeys.length]));
 	if(ctx.failed) return null;
 
-	// 2. the size of join and onArray must be identical
-	assert(ctx, 'join and onArray must be of same size', join.length == onArray.length);
+	// 2. the size of join and onArray must be identical, or onArray is '**'
+	assert(ctx, 'join and onArray must be of same size', join.length == onArray.length || onArray == '**');
 	if(ctx.failed) return null;
 
 	// 3. the input must be an array whose size is the same as join
 	assert(ctx, 'input data must be an array (of arrays)', 'isArray', ctx.inp);
 	if(ctx.failed) return null;
 
-	var parts = _.partition(ctx.inp, function(x) { return _.isArray(x); });
-	assert(ctx, 'input data must be an array with arrays, same number of arrays as number of join element', 
-		parts[0].length == 0 && parts[1].length == join.length);
-
-	if(ctx.failed) return null;
-
+	
 	//4. all members of 'on' must be functionable
-	var keyCalculators = _.map(onArray, function(on) { return functionator(on, ctx); });
+	var onAll = function(aCtx) { aCtx.outp = "**"; return aCtx; }; onAll.isFunctionated = true; //onAll is a functionated function that always generate the same join key
+	var keyCalculators = onArray == '**' ? _.map(join, function(x) { return onAll }): 
+	                                       _.map(onArray, function(on) { return functionator(on, ctx); });
+
 	// are there null functionated ? I mean - did we fail for at least ?
-	var nulls = _.findIndex(keyCalculates, function(x) { return _.isNull(x); });
+	var nulls = _.findIndex(keyCalculators, function(x) { return _.isNull(x); });
 	assert(ctx, 'all on-keys must be functionable', nulls<0);
 	if(ctx.failed) return null;
 
@@ -1381,7 +1497,7 @@ exports.makeJoiner = function(obj, ctx) {
 		if(aCtx.failed) return aCtx;
 
 		if(join.length == aCtx.inp.length) {
-			var keyContext = _.map( keyCalulators, function(calc, i){
+			var keyContext = _.map( keyCalculators, function(calc, i){
 				var ctx_i = calc(context( aCtx.inp[i] ) );
 				if(ctx_i.failed) return undefined;
 
@@ -1391,16 +1507,15 @@ exports.makeJoiner = function(obj, ctx) {
 						return m;
 					},{});
 				});
-
 			var keys = _.keys(keyContext[0]);
 
 			var outs = [];
 			_.each(keys, function(K) {
-				var vals = _.pluck(K, keyContext);
+				var vals = _.pluck(keyContext, K);
 				// outer join not supported yet
-				vals = exports.longCartesian(vals);
+				vals = exports.longCartesian(vals, outer);
 				if(vals && vals.length>0) {
-					outs.push(vals);
+					outs = outs.concat(vals);
 				}
 			});
 
@@ -1417,6 +1532,7 @@ exports.makeJoiner = function(obj, ctx) {
 	return FN;
 
 }
+exports.makeJoiner=makeJoiner;
 
 
 exports.examples = {
