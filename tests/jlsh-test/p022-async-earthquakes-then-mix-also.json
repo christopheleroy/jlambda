@@ -1,0 +1,217 @@
+{
+	"payload": [0],
+	"async": true,
+
+  "see-also": "p020 and p021 tests",
+
+  "lambda": 
+  {"async": {"get": "http://earthquake.usgs.gov/earthquakes/feed/v1.0/detail/us20003k7a.geojson", "json":true},
+  "wrap": true,
+  "adapt":  
+          {"//": "the first pluck step is to gather a few fields, mostly subfields in the properties field",
+           "///" : "but we also have subfield of the nearby cities references, which is an array, that we want to spread",
+               "pluck": { "id": "id",
+                          "mag": ["properties", "mag"], 
+                          "place": ["properties", "place"], 
+                          "magType": ["properties", "magType"], 
+                          "tsunami": ["properties", "tsunami"],
+                          "code": ["properties", "code"], 
+                          "nearby": ["properties", "products", "nearby-cities"], 
+                          "coord": ["geometry", "coordinates"]},
+             "spread": "nearby" },
+
+   "then": 
+   {"//": "for each item in the list provided, we look-up the document at the 'nearby-ur'",
+    "///": "we use {f:'id'} for the transformation, with pick for the actual URL passed to the http-get request",
+    "////": "the results are then mixed between the input data-set and the result of the out. Limit is a limit of concurent http-gets",
+   "async": {"get":
+                {"//": "the 2nd pluck step is done as the 'get' calculation and consists in getting only the url for another resources for the nearby-cities, since the nearby field is originally very comprehensive...",
+                  "pluck": {"code": "code","id":"id", "mag":"mag", "place":"place", "magType":"magType",
+                         "tsunami": "tsunami", "coord":"coord",
+                         "nearby-url": ["nearby", "contents", "nearby-cities.json", "url"] }},
+
+                 "json":true}, 
+      "mix": "in-out", 
+      "pick": "nearby-url", "limit":3}
+                                
+  },
+
+
+  "expect": 
+  [
+  {
+    "in": {
+      "code": "20003k7a",
+      "id": "us20003k7a",
+      "mag": 8.3,
+      "place": "46km W of Illapel, Chile",
+      "magType": "mww",
+      "tsunami": 1,
+      "coord": [
+        -71.6543,
+        -31.5695,
+        25
+      ],
+      "nearby-url": "http://earthquake.usgs.gov/realtime/product/nearby-cities/us20003k7a/us/1442450728040/nearby-cities.json"
+    },
+    "out": [
+      {
+        "distance": 46,
+        "direction": "W",
+        "name": "Illapel, Chile",
+        "longitude": -71.16528,
+        "latitude": -31.63083,
+        "population": 22816
+      },
+      {
+        "distance": 68,
+        "direction": "WNW",
+        "name": "Salamanca, Chile",
+        "longitude": -70.97222,
+        "latitude": -31.775,
+        "population": 13265
+      },
+      {
+        "distance": 105,
+        "direction": "NNW",
+        "name": "La Ligua, Chile",
+        "longitude": -71.23106,
+        "latitude": -32.45242,
+        "population": 24857
+      },
+      {
+        "distance": 116,
+        "direction": "SSW",
+        "name": "Ovalle, Chile",
+        "longitude": -71.20028,
+        "latitude": -30.59833,
+        "population": 77138
+      },
+      {
+        "distance": 229,
+        "direction": "NNW",
+        "name": "Santiago, Chile",
+        "longitude": -70.64827,
+        "latitude": -33.45694,
+        "population": 4837295
+      }
+    ]
+  },
+  {
+    "in": {
+      "code": "20003k7a",
+      "id": "us20003k7a",
+      "mag": 8.3,
+      "place": "46km W of Illapel, Chile",
+      "magType": "mww",
+      "tsunami": 1,
+      "coord": [
+        -71.6543,
+        -31.5695,
+        25
+      ],
+      "nearby-url": "http://earthquake.usgs.gov/realtime/product/nearby-cities/pt15259054/us/1442444977098/nearby-cities.json"
+    },
+    "out": [
+      {
+        "distance": 127,
+        "direction": "WNW",
+        "name": "Iquique, Chile",
+        "longitude": -70.14306,
+        "latitude": -20.22083,
+        "population": 227499
+      },
+      {
+        "distance": 196,
+        "direction": "SSW",
+        "name": "Arica, Chile",
+        "longitude": -70.30417,
+        "latitude": -18.475,
+        "population": 185999
+      },
+      {
+        "distance": 244,
+        "direction": "SSW",
+        "name": "Tacna, Peru",
+        "longitude": -70.24833,
+        "latitude": -18.00556,
+        "population": 280098
+      },
+      {
+        "distance": 256,
+        "direction": "S",
+        "name": "Ilo, Peru",
+        "longitude": -71.3375,
+        "latitude": -17.63944,
+        "population": 53476
+      },
+      {
+        "distance": 509,
+        "direction": "SW",
+        "name": "La Paz, Bolivia",
+        "longitude": -68.15,
+        "latitude": -16.5,
+        "population": 812799
+      }
+    ]
+  },
+  {
+    "in": {
+      "code": "20003k7a",
+      "id": "us20003k7a",
+      "mag": 8.3,
+      "place": "46km W of Illapel, Chile",
+      "magType": "mww",
+      "tsunami": 1,
+      "coord": [
+        -71.6543,
+        -31.5695,
+        25
+      ],
+      "nearby-url": "http://earthquake.usgs.gov/realtime/product/nearby-cities/at00nuskyv/us/1442444527932/nearby-cities.json"
+    },
+    "out": [
+      {
+        "distance": 71,
+        "direction": "WNW",
+        "name": "Illapel, Chile",
+        "longitude": -71.16528,
+        "latitude": -31.63083,
+        "population": 22816
+      },
+      {
+        "distance": 93,
+        "direction": "WNW",
+        "name": "Salamanca, Chile",
+        "longitude": -70.97222,
+        "latitude": -31.775,
+        "population": 13265
+      },
+      {
+        "distance": 120,
+        "direction": "SSW",
+        "name": "Ovalle, Chile",
+        "longitude": -71.20028,
+        "latitude": -30.59833,
+        "population": 77138
+      },
+      {
+        "distance": 123,
+        "direction": "NNW",
+        "name": "La Ligua, Chile",
+        "longitude": -71.23106,
+        "latitude": -32.45242,
+        "population": 24857
+      },
+      {
+        "distance": 246,
+        "direction": "NNW",
+        "name": "Santiago, Chile",
+        "longitude": -70.64827,
+        "latitude": -33.45694,
+        "population": 4837295
+      }
+    ]
+  }
+ ]
+}

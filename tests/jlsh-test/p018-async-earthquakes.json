@@ -1,0 +1,17 @@
+{
+	"payload": [0],
+	"async": true,
+
+	"lambda": 
+
+ {"async": {"get": "http://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson", "json":true},
+  "then":
+    {"pluck": {"mag": ["properties", "mag"], "time": ["properties", "time"], 
+               "place": ["properties", "place"], "detail": ["properties", "detail"], 
+               "magType": ["properties", "magType"], "id": "id", 
+               "coord": ["geometry", "coordinates"]}, "with": "features" }
+  },
+
+  "expectSuccess": true,
+  "//": "we can't expect exact data as this URL has dynamic content..."
+}

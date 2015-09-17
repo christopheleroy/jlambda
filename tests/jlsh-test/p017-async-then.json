@@ -1,0 +1,24 @@
+{
+	"payload": [0],
+	"async": true,
+
+	"lambda": 
+	  {"async": {"get": "http://live-nse.herokuapp.com/?symbol=AIAENG,ATULAUTO,BPCL,WIPRO", 
+	              "json":true},
+	   "then": 
+	               {"pluck": {"market": "marketType", "sym": "symbol", "com": "companyName"}, "with": "data"}
+	  },
+
+	  "comment1": "an async-get gets you webservice data.",
+	  "comment2": "the json option ensures the string data returned by the webservice is parsed as data before being passed to the rest of the processing",
+	  "comment3": "the then function processes the output, and may lead to more asynchronous processing",
+
+
+	 "expect": 
+	    [
+	    	{"market":"N","sym":"AIAENG","com":"AIA Engineering Limited"},
+	    	{"market":"N","sym":"ATULAUTO","com":"Atul Auto Limited"},
+	    	{"market":"N","sym":"BPCL","com":"Bharat Petroleum Corporation Limited"},
+	    	{"market":"N","sym":"WIPRO","com":"Wipro Limited"}
+	    ]
+}

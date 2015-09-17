@@ -1,0 +1,35 @@
+{
+	"payload": [0],
+	"async": true,
+
+	"lambda": 
+
+ {"async": {"get": "http://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson", "json":true},
+  "adapt":
+    {"pluck": {"mag": ["properties", "mag"], "time": ["properties", "time"], 
+               "place": ["properties", "place"], "detail": ["properties", "detail"], 
+               "magType": ["properties", "magType"], "id": "id", 
+               "coord": ["geometry", "coordinates"]}, "with": "features" },
+
+   "then":
+   {"async": {"get": {"f":"id"}, "json":true},
+    "limit": 3,
+    "mix": "in-out", "pick": "detail",
+
+    "adapt": 
+      {"chain": [
+         {"pluck": {"in":"in", "nearby": ["out", "properties", "products", "nearby-cities"]}, "spread": "nearby"},
+         {"pluck": {"in":"in", "nearby-url": ["nearby", "contents", "nearby-cities.json", "url"]}} ]
+       },
+
+     "then": 
+     {"async": {"get": {"f":"id"}, "json":true},
+ 		"limit":3, 
+ 		"mix": "in-out", "pick": "nearby-url",
+ 		"adapt": 
+ 		  {"pluck": 
+ 		  	{"quake": ["in", "in"], "nearby": "out"}, "spread": "nearby"}
+ 	 }
+   }
+  }
+}

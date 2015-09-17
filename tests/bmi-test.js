@@ -1,4 +1,4 @@
-var jlambda = require("../jlambda.js");
+var jlambda = require("../jlambda-core.js");
 var jltst   = require("./jlambda-test.js");
 var _ = require("lodash");
 
@@ -29,9 +29,9 @@ var DATA = [{"sf": "BMI", "lfs": [
 
 	}];
 
+var z = jlambda.context();
 
-
-var P = jlambda.functionator(PROG);
+var P = jlambda.functionator(PROG,z);
 var C = jlambda.context(DATA[0].lfs);
 var R  = P(C);
 var E  = [ 1978, 1980, 2002, 1989, 2003, 2001, 2001, 2003, 2004 ];

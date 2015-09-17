@@ -53,7 +53,7 @@ var DATA =
 	]};
 
 
-var jlambda = require('../jlambda.js');
+var jlambda = require('../jlambda-core.js');
 var jltst = require("./jlambda-test.js");
 
 PROG = {

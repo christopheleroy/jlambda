@@ -12,7 +12,8 @@
 
  "comments": "pluck can also be used to extract field from a stream, and rename them",         
 
- "lambda": {"pluck": {"person":"name", "alleged-age":"age"} },
+ "lambda": {"pluck": {"person":"name", "alleged-age":"age"}
+            },
 
 
   "expect": 

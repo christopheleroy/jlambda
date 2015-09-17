@@ -1,4 +1,4 @@
-var jlambda = require("../jlambda.js");
+var jlambda = require("../jlambda-core.js");
 var jltst   = require("./jlambda-test.js");
 
 var _ = require("lodash");

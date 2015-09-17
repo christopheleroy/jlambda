@@ -1,0 +1,50 @@
+{
+	"payload": [0],
+	"async": true,
+
+  "see-also": "p021 test and p022 test",
+
+	"lambda": 
+
+ {"async": {"get": "http://earthquake.usgs.gov/earthquakes/feed/v1.0/detail/us20003k7a.geojson", "json":true},
+  "wrap": true,
+  "adapt":  
+           {"//": "we make a chain because we need to pluck-steps", 
+            "chain":
+            [ {"//": "the first pluck step is to gather a few fields, mostly subfields in the properties field",
+               "///" : "but we also have subfield of the nearby cities references, which is an array, that we want to spread",
+               "pluck": { "id": "id",
+                          "mag": ["properties", "mag"], 
+                          "place": ["properties", "place"], 
+                          "magType": ["properties", "magType"], 
+                          "tsunami": ["properties", "tsunami"],
+                          "code": ["properties", "code"], 
+                          "nearby": ["properties", "products", "nearby-cities"], 
+                          "coord": ["geometry", "coordinates"]},
+             "spread": "nearby" },
+
+             {"//": "the 2nd pluck step consist in getting only the url for another resources for the nearby-cities, since the nearby field is originally very comprehensive...",
+              "pluck": {"code": "code","id":"id", "mag":"mag", "place":"place", "magType":"magType",
+                         "tsunami": "tsunami", "coord":"coord",
+                         "nearby": ["nearby", "contents", "nearby-cities.json", "url"] }} 
+            ]
+           }
+                                
+  },
+
+  "expect": 
+  [
+    {"code":"20003k7a","id":"us20003k7a","mag":8.3,"place":"46km W of Illapel, Chile","magType":"mww","tsunami":1,
+     "coord":[-71.6543,-31.5695,25],
+     "nearby":"http://earthquake.usgs.gov/realtime/product/nearby-cities/us20003k7a/us/1442450728040/nearby-cities.json"},
+
+    {"code":"20003k7a","id":"us20003k7a","mag":8.3,"place":"46km W of Illapel, Chile","magType":"mww","tsunami":1,
+    "coord":[-71.6543,-31.5695,25],
+    "nearby":"http://earthquake.usgs.gov/realtime/product/nearby-cities/pt15259054/us/1442444977098/nearby-cities.json"},
+
+    {"code":"20003k7a","id":"us20003k7a","mag":8.3,"place":"46km W of Illapel, Chile","magType":"mww","tsunami":1,
+      "coord":[-71.6543,-31.5695,25],
+      "nearby":"http://earthquake.usgs.gov/realtime/product/nearby-cities/at00nuskyv/us/1442444527932/nearby-cities.json"}
+  ]
+  
+}

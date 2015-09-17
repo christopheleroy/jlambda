@@ -9,7 +9,7 @@
                       ]
              },
 
- "step0-output" : 
+ "step0-output (zip)" : 
             [ ["ab", "ef", "alpha"], 
               ["cd", "gh", "beta"] ],
 
