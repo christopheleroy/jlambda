@@ -1,0 +1,3 @@
+[ {"machine": ".*.work.com", "pattern": true, "username": "userid", "password": "my-password-at-work"},
+  {"machine": ".*.aws.amazon.com", "pattern": true, "username": "aws-account", "password": "aws-password" }
+ ]
