@@ -26,15 +26,38 @@ function addProxy(hostPattern, proxy) {
 exports.addAuth = addAuth;
 exports.addProxy = addProxy;
 
+function twoStepFinder(array1, array2, finder) {
+	var found = null;
+	if(array1) found = _.find(array1, finder);
+	if(!found && array2) found = _.find(array2, finder);
+	return found;
+}
 
-function injectConfiguration(opts) {
+function injectConfiguration(opts, ctxConfig) {
 	var url = opts.url ? opts.url.toString() : "no-url-is-not-supported-but-errors-will-come-later-i-guess";
-	var auth = _.find(_configuredAuth, function(a) { return url.match(a.pat); });
+
+	var finder = function(a) { return url.match(a.pat); }
+
+	// if ctxConfig comes with auth spec, we will use this, otherwise we use the configured-auth
+	var auth = twoStepFinder(  (ctxConfig && ctxConfig.authArray ? ctxConfig.authArray : null), _configuredAuth, finder);
 	if(auth) {
-		opts.auth = {username: auth.username, password: auth.password };	
-		console.warn("found authentication for " +url);
+		if(auth.cookie && ctxConfig.cookies && ctxConfig.cookies[ auth.cookie ]) {
+			var ckName = auth.cookie;
+			var ckValue = ctxConfig.cookies[ckName];
+			var jar = request.jar();
+			var ck  = request.cookie(ckName+"="+ckValue);
+			jar.setCookie(ck, opts.url);
+			opts.jar = jar;
+			console.warn("added cookie " + ckName);				
+		}else if(opts.auth){
+			opts.auth = {username: auth.username, password: auth.password };	
+			console.warn("found authentication for " +url);
+		}else{
+			console.warn("found authentication specs but missing cookie...?");
+		}
+		
 	}
-	var proxy = _.find(_configuredProxy, function(a) { return url.match(a.pat); });
+	var proxy = twoStepFinder( (ctxConfig && ctxConfig.proxyArray ? ctxConfig.proxyArray : null), _configuredProxy, finder);
 	if(proxy) {
 		opts.proxy = proxy.proxy;
 		console.warn("found proxy for " + url);
@@ -129,7 +152,7 @@ jlambda.addPrefunctionator(
 						debugger;
 					}
 
-					injectConfiguration(opt);
+					injectConfiguration(opt, aCtx);
 					request(opt, function(err, httpResponse, data) {
 						if(err) {
 							aCtx.failed = true;
@@ -222,7 +245,7 @@ jlambda.addPrefunctionator(
 							var opt = _.isObject(it) ? it : 
 								_.isArray(it) && it.length>0 ? _.clone(it[0]) : {url: it};
 
-							injectConfiguration(opt);
+							injectConfiguration(opt, aCtx);
 							request(opt, function(err, response, data) {
 								if(err) {
 									aCtx.failed = true;
