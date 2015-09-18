@@ -1,17 +1,22 @@
-var jLambda = require("./jlambda-core.js");
-var ajl     = require("./jlambda-async.js");
-var express = require("express");
+var jLambda   = require("./jlambda-core.js");
+var ajl       = require("./jlambda-async.js");
+var express   = require("express");
 var parseArgs = require("minimist");
 var _         = require("lodash");
+var cookieParser = require("cookie-parser");
 
 
 var jlsrv = express();
+jlsrv.use(cookieParser());
 
 var argv = parseArgs(process.argv);
+
+configureAsyncJlambda(argv);
 
 
 jlsrv.get("/jlambda", function(req,res) {
 	var q = req.query;
+	var cookies = _.clone(req.cookies);
 
 	var payloadJson = q.payload || q.p;
 	var lambdaJson  = q.lambda || q.l;
@@ -19,6 +24,8 @@ jlsrv.get("/jlambda", function(req,res) {
 	var wrap        = q.wrap || q.w;
 
 	var payload = null, lambda = null;
+	res.set('Content-type', 'application/json');
+
 debugger;
 	if(payloadJson && lambdaJson) {
 		try {
@@ -40,7 +47,7 @@ debugger;
 			lambda = null;
 		}
 		if(_.isNull(payload)  || _.isNull(lambda) ) {
-				res.send(500, '{"error":"Input JSON could not be parsed: ' +
+				res.status(500).send('{"error":"Input JSON could not be parsed: ' +
 					(_.isNull(payload) ? '(payload json not parsed)': '') +
 					(_.isNull(lambda)  ? '(lambda json not parsed)': '') + '"}');
 				return;
@@ -56,28 +63,28 @@ debugger;
 			issue = "Unable to parse the json passed in jp";
 		}
 		if(!issue && (_.isNull(lambda) || _.isNull(payload))) {
-			res.send(500,'{"error":"Input json parsed but missed lambda or payload: '+
+			res.status(500).send('{"error":"Input json parsed but missed lambda or payload: '+
 				(_.isNull(payload) ? '(payload missing)': '') +
 					(_.isNull(lambda)  ? '(lambda missing)': '') + '"}');
 			return;
 		}
 	}
 	if(_.isNull(lambda) || _.isNull(payload)) {
-		res.send(500, '{"error":"No parameters were detected", "help": ["Use lambda or l for the lambda expression.", "Use payload or p for the payload expression.", "Use jp for both."]}');
+		res.status(500).send('{"error":"No parameters were detected", "help": ["Use lambda or l for the lambda expression.", "Use payload or p for the payload expression.", "Use jp for both."]}');
 		return;
 	}
 	var ctx = jLambda.context();
 	var FN = jLambda.functionator(lambda, ctx);
 	if(ctx.failed) {
-		res.send(500, JSON.stringify({error: "error in functionator", "context": ctx }));
+		res.status(500).send(JSON.stringify({error: "error in functionator", "context": ctx }));
 		return;
 	}
 
 	var afterwards = function() {
 		if(this.failed) {
-			res.send(500, JSON.stringify({"error": "error during evaluation", "failures": this.failures}));
+			res.status(500).send(JSON.stringify({"error": "error during evaluation", "failures": this.failures}));
 		}else{
-			res.send(200, JSON.stringify(this.outp));
+			res.status(200).send(JSON.stringify(this.outp));
 		}
 	};
 
@@ -85,9 +92,12 @@ debugger;
 	
 	if(FN.isAsynchronous) {
 		var execCtx = jLambda.context(payload, null, afterwards);
+		execCtx.cookies = cookies;
 		FN(execCtx);	
 	}else{
-		var out = FN(jLambda.context(payload));
+		var execCtx = jLambda.context(payload)
+		execCtx.cookies = cookies; 
+		var out = FN();
 		(afterwards.bind(out))();
 	}
 });
@@ -96,3 +106,23 @@ var port = argv.port ? parseInt(argv.port) : 11111;
 var server = jlsrv.listen(port, function() {
 	console.info("Jlambda server running on port " + server.address().port + " of " + server.address().address);
 });
+
+
+function configureAsyncJlambda(argv) {
+	 if(argv.proxy) {
+		if(argv.internal) {
+			var pat = "^https?://[^/]*"+argv.internal;
+			ajl.addProxy(pat, null);
+		}
+		ajl.addProxy("^http", argv.proxy)
+	}
+	if(argv.cookie) {
+		if(argv.internal) {
+			var pat = "^https?://[^/]*"+argv.internal;
+			ajl.addAuth(pat, null, null, argv.cookie);
+		}else{
+			ajl.addAuth(".*", null,null, argv.cookie);
+		}
+	}
+
+}
