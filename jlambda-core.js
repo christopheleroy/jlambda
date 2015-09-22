@@ -30,7 +30,7 @@ var context = function(data, mode, doneFN) {
 
 	var failures = [];
 // debugger;
-	if(_.isUndefined(mode)) { 
+	if(_.isUndefined(mode) || _.isNull(mode)) { 
 		if(isArray) {
 			if(data.length>0) {
 				if(_.isArray(data[0])) {
@@ -44,7 +44,7 @@ var context = function(data, mode, doneFN) {
 					         else mode = 'stream';
 				}else if(_.isString(data[0]) || _.isNumber(data[0])) {
 					var nonScalar = _.find(data, function(x) { return !(_.isString(x) || _.isNumber(x))});
-					if(nonScalar) failures.push('not a stream of scalars');
+					if(nonScalar) {failures.push('not a stream of scalars'); }
 					         else mode = 'stream';
 				}
 			}else{
@@ -59,7 +59,7 @@ var context = function(data, mode, doneFN) {
 					hasArrays = true;
 				}else if(_.isObject(data[key])) {
 					hasObjects = true;
-				}else if(_.isString(data[key]) || _.isNumber(data[key])) {
+				}else if(_.isString(data[key]) || _.isNumber(data[key]) || _.isBoolean(data[key])) {
 					hasScalars = true;
 				}else{
 					failures.push('map has surprising type');
@@ -133,6 +133,7 @@ var makeZipper = function(obj, ctx) {
 	var debug = !!obj.debug;
 	var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
 	if(ctx.failed) return null;
+	var repeat = !!(obj.repeat)
 
     var builder = null;
 	if(_.isArray(obj.zip)) {
@@ -163,7 +164,8 @@ var makeZipper = function(obj, ctx) {
 			var outp = [];
 			for(var i = 0; i< maxLength; i++) {
 				var list=_.reduce(aCtx.inp, function(row, inpList) { 
-					row.push( inpList[i] );
+					var val = repeat? inpList[ i % inpList.length ] : inpList[i];
+					row.push(val);
 					return row;
 				},[]);
 				outp.push( builder(list) );
@@ -849,7 +851,7 @@ var makeSpecialOperation = function(obj, ctx) {
 				var repl = obj.replace;
 				baseF = _.isUndefined(obj.replace) ?
 					function(x) { if(x) { return !!(x.toString().match(rgp)); } return false; } :
-					function(x) { if(x) return x.toString().replace(rpg, repl); return undefined; }
+					function(x) { if(x) return x.toString().replace(rgp, repl); return undefined; }
 			
 			}else{
 				ctx.failed = true;
@@ -868,7 +870,7 @@ var makeSpecialOperation = function(obj, ctx) {
 		}
 		if(!baseF) {
 			var ff = obj.f;
-			if(ff=='+' || ff=='*' || ff=='min' || ff == 'max' || ff == '-' || ff == '/') {
+			if(ff=='+' || ff=='*' || ff=='min' || ff == 'max' || ff == '-' || ff == '/' || ff == "||") {
 				var ops = 
 					ff == '+'   ? { st: 0, red: function(x,y) { return x+y; } } :
 					ff == '*'   ? { st: 1, red: function(x,y) { return x*y; } } : 
@@ -876,6 +878,7 @@ var makeSpecialOperation = function(obj, ctx) {
 					ff == 'max' ? { st: null, red: function(x,y) { return x==null? y: (x>y ? x : y ); }} : 
 					ff == '-'   ? { st: null, red: function(x,y) { return x==null? y : x-y; } } :
 					ff == '/'   ? { st: null, red: function(x,y) { return x==null ? y : x/y } }:
+					ff == "||"  ? { st: "",  red: function(x,y) { return x + y; } } : 
 					null;
 				if(ops) {
 					var fst = ops.st;
