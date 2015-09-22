@@ -49,8 +49,8 @@ function injectConfiguration(opts, ctxConfig) {
 			jar.setCookie(ck, opts.url);
 			opts.jar = jar;
 			console.warn("added cookie " + ckName);				
-		}else if(opts.auth){
-			opts.auth = {username: auth.username, password: auth.password };	
+		}else if(auth.user && !_.isUndefined(auth.password)){
+			opts.auth = {username: auth.user, password: auth.password };	
 			console.warn("found authentication for " +url);
 		}else{
 			console.warn("found authentication specs but missing cookie...?");
@@ -199,18 +199,17 @@ jlambda.addPrefunctionator(
 					if(_.isUndefined(aCtx.done)) {
 						debugger;
 					}
-					
+					debugger;
 					var bCtx = httpFN(aCtx);
 					if(bCtx.failed) {
 						thenFailThis(aCtx, null);
 					}else{
 						
 						var overallOUTP = [];
-						var items = isParallel ? 
+						var items =
 							_.map(bCtx.outp, function(item, i) {
 								return {i: i, it: item};
-							}) :
-							[ {i: 0, it: bCtx.outp } ];
+							}) ;
 
 						var issues = [];
 						_.each(items, function(item, i) {
@@ -253,9 +252,13 @@ jlambda.addPrefunctionator(
 									aCtx.error = err;
 									cb(err);
 								}else{
-
 									if(ajson) {
-										data = JSON.parse(data);
+										try { 
+											data = JSON.parse(data);
+										}catch(e) {
+											overallOUTP[item.it]={"straight-outp":data, outp:[], statusCode: response.statusCode, ok: false};
+											return cb();
+										}
 									}
 									if(wrap && ! _.isArray(data)) data = [ data ];
 									if(mixer == 'io') {
@@ -270,10 +273,10 @@ jlambda.addPrefunctionator(
 
 							});
 						}, function(err) {
-							var data = isParallel ? 
+							var data = 
 								_.map(overallOUTP, function(z) {
 									return z && z.ok ? z.outp : null;
-								}) : overallOUTP[0];
+								});
 
 							thenDoThis(aCtx, thenFN, data, mode, adaptor);
 						});
