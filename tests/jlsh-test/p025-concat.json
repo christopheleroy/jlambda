@@ -1,0 +1,18 @@
+{
+	
+"payload": [ "3f4d9e2f-3def-4860-949f-57838c516f80",
+    		"c6e50df8-d27c-4055-85fb-15b6bc159e65" ],
+	
+ "lambda": 
+   {"chain": [
+	    [{"f":"id", "with":[{"#":"http://svc.klowns.com/nlists/api/nlist"}]},{"f":"id"}],
+		{"zip":[], "repeat": true },
+		{"f":"paste", "sep":"/"}]},
+		
+ "expect" : ["http://svc.klowns.com/nlists/api/nlist/3f4d9e2f-3def-4860-949f-57838c516f80",
+	         "http://svc.klowns.com/nlists/api/nlist/c6e50df8-d27c-4055-85fb-15b6bc159e65"]
+			 
+		
+   
+}
+  
