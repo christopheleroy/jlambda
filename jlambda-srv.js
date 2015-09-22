@@ -11,6 +11,7 @@ jlsrv.use(cookieParser());
 
 var argv = parseArgs(process.argv);
 
+
 configureAsyncJlambda(argv);
 
 
@@ -30,7 +31,7 @@ debugger;
 	if(payloadJson && lambdaJson) {
 		try {
 			if(wrap) {
-				if(wrap == ',' || warp == '|') {
+				if(wrap == ',' || wrap == '|') {
 					payload = payloadJson.split(wrap);
 				}else{
 					payload = [ payloadJson ];
@@ -87,17 +88,18 @@ debugger;
 			res.status(200).send(JSON.stringify(this.outp));
 		}
 	};
+	console.info(JSON.stringify(lambda,null,1));
+	console.info(payload);
 
-
-	
+	var execCtx = null;
 	if(FN.isAsynchronous) {
-		var execCtx = jLambda.context(payload, null, afterwards);
+		execCtx = jLambda.context(payload, null, afterwards);
 		execCtx.cookies = cookies;
 		FN(execCtx);	
 	}else{
-		var execCtx = jLambda.context(payload)
+		execCtx = jLambda.context(payload)
 		execCtx.cookies = cookies; 
-		var out = FN();
+		var out = FN(execCtx);
 		(afterwards.bind(out))();
 	}
 });
