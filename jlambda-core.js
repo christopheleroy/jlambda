@@ -187,7 +187,7 @@ function makeExtractorStep(path) {
 	if(_.isString(path) || _.isNumber(path)) {
 		return function(obj,ctx) {
 		  	try {
-				return obj[path];
+				return _.isNull(obj) || _.isUndefined(obj) ? null : (_.isObject(obj) ? obj[path] : null ) ;
 			}catch(err) {
 				ctx.failed =true;
 				ctx.failures.push("extractor: " + err);
@@ -252,6 +252,7 @@ var makePlucker = function (obj, ctx) {
 
 	
 	var plKey = obj.pluck;
+	var pickList = obj.pick;
 	var spreading = !!obj.spread
 	if(spreading && !(_.isString(obj.spread))) {
 		ctx.failures.push("spread must be a string");
@@ -261,7 +262,36 @@ var makePlucker = function (obj, ctx) {
 	var spreader = spreading ? makeReduceSpreader(obj.spread) : null;
 
 	var isPlain = _.isString(plKey);
-	var extractor = isPlain ? null: makeExtractorStep(plKey);
+	
+	var extractor = null;
+	if(pickList) {
+		var issue = null;
+		if(_.isArray(pickList) && pickList.length>0) {
+			if(_.isArray(plKey) && plKey.length ==0) {
+				var def = obj.defaults || {};
+				
+				extractor = function(x, aCtx) {
+					if(!_.isObject(x)) return null;
+					return _.reduce(pickList, function(m,k) {
+						m[k] = x[k]; return m;
+					}, _.clone(def));
+				};
+				
+			}else{
+				issue = "for pluck with option 'pick', the pluck value must be []...";
+			}
+		}else{
+			issue = "for pluck with option 'pick', the pick value must be an array of strings or positions";
+		}
+		if(issue) { 
+			ctx.failed = true;
+			ctx.failures.push(issue);
+			return null;
+		}
+	}else if(!isPlain) {
+		extractor = makeExtractorStep(plKey);
+	}
+	
 
 
 	 var FN = function(aCtx) { 
@@ -272,7 +302,8 @@ var makePlucker = function (obj, ctx) {
 	 		if(isPlain) {
 				aCtx.outp = _.pluck(aCtx.inp, plKey);
 			}else{
-				aCtx.outp = _.map(aCtx.inp, function(x) { return extractor(x, aCtx); });
+				aCtx.outp = _.map(aCtx.inp, function(x) { 
+					 return extractor(x, aCtx); });
 			}
 		}else if(aCtx.mode =='map' || aCtx.mode=='object') {
 			if(isPlain) {
@@ -355,15 +386,30 @@ var makeRenamer = function(obj, ctx) {
 	if(ctx.failed) return null;
 
 
+	var def = defaults || {};
 
 
-	if(!_.isObject(remap)) {
-		ctx.failed = true;
-		ctx.failures.push("rename expects a map (json object)");
-		return null;
-	}
-
-	var renamer = function(iZ) {
+	var renamer = _.isArray(remap) ?
+		function(iZ) {
+			if(_.isArray(iZ)) {
+				return _.reduce(remap, function(m,k,i){
+					m[k] = iZ[i];
+				}, _.clone(def));
+			}else{
+				return iZ;
+			}
+		}:
+		
+		_.isString(remap) ? 
+			function(iZ) {
+				var q = _.clone(def);
+				q[remap] = iZ;
+				return q;
+			} :
+			
+		_.isObject(remap) ? 	
+	
+	function(iZ) {
 		var Z = (doCloning? _.clone(iZ) : iZ);
 		_.each(remap, function(to,from) {
 			if(polite && (!_.isUndefined(Z[to]) || _.isUndefined(Z[from]))) 
@@ -375,7 +421,15 @@ var makeRenamer = function(obj, ctx) {
 			delete Z[from];
 		});
 		return Z;
-   };
+   } :
+   	null;
+	   
+	if(_.isNull(renamer)) {
+		ctx.failed = true;
+		ctx.failures.push("rename expects a map (json object), a single string or an array of strings");
+		return null;
+	}
+
 
 	var FN = function(aCtx) {
 		
@@ -807,8 +861,10 @@ var makeSpecialOperation = function(obj, ctx) {
 	if(obj.f) {
 		var baseF = obj.f == 'lower' ? function(x) { return x.toLowerCase() } :
 			obj.f == 'upper' ? function(x) { return x.toUpperCase();} :
-			obj.f == 'length' ? function(x) { return x.length; } : 
+			obj.f == 'length' ? function(x) { return x ? x.length : undefined; } : 
 			obj.f == 'num' ? function(x) { return parseFloat(x); } : 
+			obj.f == 'empty' ? function(x) { return _.isNull(x) || _.isUndefined(x) || (_.isArray(x) && x.length == 0) ||(_.isObject(x) && _.keys(x).length ==0) } :  
+			obj.f == 'not-empty' ? function(x) { return !(_.isNull(x) || _.isUndefined(x) || (_.isArray(x) && x.length == 0) ||(_.isObject(x) && _.keys(x).length ==0))} :
 			null;
 
 		if(obj.f == '>n' || obj.f == '>=n' || obj.f == '<n' || obj.f == '=<n' || obj.f == '==n') {
@@ -861,8 +917,43 @@ var makeSpecialOperation = function(obj, ctx) {
 		}
 		if(!baseF && obj.f == 'paste') {
 			var sep = obj.sep || '';
-
-			var mFN = function(item) {
+			
+			var apply = obj.apply;
+			var mFN = null;
+			
+			if(apply) {
+				var applyIssues = [];
+				var applyArrays = _.reduce(apply, function(m, fields, from) {
+					if(_.isArray(fields)) {
+						m[from]=true;
+					}else if(_.isString(fields)) {
+						m[from]=false;
+					}else{
+						applyIssues.push("for field "+ from+ ": input fields must be a list or a single field");
+					}
+					return m;
+				},{});
+				if(applyIssues.length>0) {
+					ctx.failed=true;
+					ctx.failures.push("for f:paste, issue with 'apply' :" + applyIssues.join("; "));
+					return null;
+				}
+				
+				mFN = function(item) {
+					_.each(apply, function(fields, from) {
+						if(applyArrays[from]) {
+							var inp = _.map(fields, function(f) { return item[f];});
+							item[from] = inp.join(sep);
+						}else{
+							item[from] = (item[fields] && item[fields].join ? item[fields].join(sep) : item[fields]);
+						}						
+					});
+					return item;
+				}
+				return arrayfier(mFN);
+			}
+			
+			mFN = function(item) {
 				if(item && item.join) { return item.join(sep); }
 				return item;
 			}
@@ -929,9 +1020,12 @@ var makeSpecialOperation = function(obj, ctx) {
 					return null;
 				}
 
+				
 				var mFN = function(item) { 
 					var x = _.cloneDeep(item); 
-					_.each(fields, function(to,from) { x[to] = baseF(x[from]) });
+					_.each(fields, function(to,from) {
+						 
+						x[to] = baseF(x[from]) });
 					return x;
 				};
 				return arrayfier(mFN);
@@ -942,7 +1036,7 @@ var makeSpecialOperation = function(obj, ctx) {
 					if(loop) {
 						return _.map(from, function(k) { return baseF(item[k]); });
 					}else{
-						return baseF(item[from]);
+						return _.isNull(item)  ? baseF(null) : baseF(item[from]);
 					}
 				};
 				
@@ -1093,7 +1187,7 @@ function makeAndOr(obj, ctx) {
 		_.each(allCtx, function(cx,i) {
 			if(cx.failed) {
 				aCtx.failed = true;
-				var i1th = "(" (i+1) + (i==0? 'st' : i==1? 'nd' : i==2? 'rd': 'th') + " test) ";
+				var i1th = "(" + (i+1) + (i==0? 'st' : i==1? 'nd' : i==2? 'rd': 'th') + " test) ";
 				aCtx.failures = aCtx.failures.concat( _.map(cx.failures, function(ff) { return i1th + ff; }));
 			}
 		});
@@ -1339,7 +1433,9 @@ var functionator = function(obj,ctx) {
 	if(_.isArray(obj)) {
 		FN = makeArrayBuilder(obj, ctx);
 	}else if(_.isObject(obj)) {
-		if(obj.pluck) {
+		if(obj["!"]) {
+			FN = makeSpecialOperation({f:"id"},ctx);
+		}else if(obj.pluck) {
 			FN =  makePlucker(obj,ctx);
 		}else if(obj.rename) {
 			FN =  makeRenamer(obj,ctx);
