@@ -4,6 +4,7 @@ var express   = require("express");
 var parseArgs = require("minimist");
 var _         = require("lodash");
 var cookieParser = require("cookie-parser");
+var uti = require("./uti-convert.js");
 
 
 var jlsrv = express();
@@ -23,9 +24,11 @@ jlsrv.get("/jlambda", function(req,res) {
 	var lambdaJson  = q.lambda || q.l;
 	var inJson      = q.jp;
 	var wrap        = q.wrap || q.w;
+	var format      = q.format || q.f || 'json';
 
 	var payload = null, lambda = null;
-	res.set('Content-type', 'application/json');
+	if(format == 'json') 
+		res.set('Content-type', 'application/json');
 
 debugger;
 	if(payloadJson && lambdaJson) {
@@ -85,7 +88,15 @@ debugger;
 		if(this.failed) {
 			res.status(500).send(JSON.stringify({"error": "error during evaluation", "failures": this.failures}));
 		}else{
-			res.status(200).send(JSON.stringify(this.outp));
+			if(format == 'csv' || format=='CSV') {
+				var columns = uti.listColumns(this.outp);
+				var reportDef = uti.makeReportsDef(columns);
+				var csv = uti.convertJSONToCSV(this.outp, reportDef, ",");
+				res.set('Content-type', 'application/vnd.ms-excel');
+				res.status(200).send(csv);
+			}else{
+				res.status(200).send(JSON.stringify(this.outp));
+			}
 		}
 	};
 	console.info(JSON.stringify(lambda,null,1));
@@ -128,3 +139,6 @@ function configureAsyncJlambda(argv) {
 	}
 
 }
+
+
+
