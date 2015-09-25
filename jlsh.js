@@ -4,6 +4,7 @@ var parseArgs = require("minimist");
 var _ = require("lodash");
 
 
+
 var dataIn = "";
 var argv = parseArgs(process.argv);
 
@@ -24,19 +25,28 @@ function processIt(data, doTest, pretty){
 		}else{
 
 			var afterwards = function() {
+				    var output = "";
 					if(this.failed) {
 						console.error(this.failures);
 						process.exit(7);
+					}else if(pretty == 'csv') {
+						var uti = require("./uti-convert.js");
+						var json = this.outp;
+						var cols = uti.listColumns(json);
+						var redf = uti.makeReportsDef(cols);
+						var csv  = uti.convertJSONToCSV(json, redf,",");
+						output = csv;
 					}else{
-						var stringified = pretty? JSON.stringify(this.outp, null, 2) : JSON.stringify(this.outp);
-						try { process.stdout.write(stringified); }
-						catch(e) { 
-							console.error("Exception when outputing the results in jlsh.js ... "); 
-							console.error(e); 
-							console.log(this.outp); 
-							console.error("Exception:" +e.toString());}
-						process.exit(0);
+						output = pretty? JSON.stringify(this.outp, null, 2) : JSON.stringify(this.outp);
 					}
+					try { process.stdout.write(output); }
+					catch(e) { 
+						console.error("Exception when outputing the results in jlsh.js ... "); 
+						console.error(e); 
+						console.log(this.outp); 
+						console.error("Exception:" +e.toString());}
+					process.exit(0);
+				
 				};
 
 			if(doTest) {
@@ -156,6 +166,7 @@ if(argv.netrc) {
 }
 
 var pretty = !! argv.pretty;
+if(argv.csv) pretty = 'csv';
 
 // Process the JLAMBDA and JSON options
 if(argv.lambda && argv.json) {
@@ -172,7 +183,7 @@ if(argv.lambda && argv.json) {
 			});
 		});
 	}else{
-		if(! (fs.existSync(argv.lambda) && fs.existSync(argv.json))) {
+		if(! (fs.statSync(argv.lambda).isFile() && fs.statSync(argv.json).isFile())) {
 			console.error("File " + argv.lambda + " or " + argv.json + "  not found");
 		}else{
 			readFile(argv.lambda, function(lambdaData) {
