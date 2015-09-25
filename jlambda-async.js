@@ -241,7 +241,7 @@ jlambda.addPrefunctionator(
 							// item may be a single string, an array (we use the first one), or an object
 							var it = item.picked;
 
-							var opt = _.isObject(it) ? it : 
+							var opt = _.isObject(it) ? _.clone(it) : 
 								_.isArray(it) && it.length>0 ? _.clone(it[0]) : {url: it};
 
 							injectConfiguration(opt, aCtx);
