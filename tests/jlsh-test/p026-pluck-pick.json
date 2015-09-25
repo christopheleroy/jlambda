@@ -1,0 +1,19 @@
+{"payload":
+	[
+	    {"name": "John", "age": 33, "level": "A" },
+	     {"name": "Jake", "age": 32, "level": "A" },
+	     {"name": "Joe", "age": 45, "level": "C"},
+	     {"name": "Jeff", "age": 34, "level":"Z"},
+	     {"name": "Jane", "age": 54, "level": "Q"},
+	     {"name": "Julie", "age": 23, "level":"B"},
+	     {"name": "Jabba", "age": 542, "level":"X"},
+	     {"name": "Justin", "age":29, "level":"Z"}
+	  ],
+
+ "comments": "pluck:[] plick can be used to simply cut data from your object stream",         
+
+ "lambda": {"pluck":[], "pick": ["name", "age"]},
+ 
+ "expect": [{"name":"John","age":33},{"name":"Jake","age":32},{"name":"Joe","age":45},{"name":"Jeff","age":34},{"name":"Jane","age"
+:54},{"name":"Julie","age":23},{"name":"Jabba","age":542},{"name":"Justin","age":29}]
+}
