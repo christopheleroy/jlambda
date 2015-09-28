@@ -13,8 +13,11 @@ function processIt(data, doTest, pretty){
 	// console.log(dataIn);
 	// var data = JSON.parse(dataIn);
 	// console.log(JSON.stringify(data.lambda));
-	if(data.async) {
+	if(data.async) { // make sure the module is loaded if it is stated as require in the test case
 		var ajl = require("./jlambda-async.js");
+	}
+	if(data.define) {// make sure the module is loaded if it is stated as require in the test case
+		var djl = require("./jlambda-define.js");
 	}
 	if(data.lambda && data.payload) {
 		var ctx = jlambda.context();
@@ -44,7 +47,9 @@ function processIt(data, doTest, pretty){
 						console.error("Exception when outputing the results in jlsh.js ... "); 
 						console.error(e); 
 						console.log(this.outp); 
-						console.error("Exception:" +e.toString());}
+						console.error("Exception:" +e.toString());
+						process.exit(7);
+					}
 					process.exit(0);
 				
 				};
@@ -163,6 +168,11 @@ if(argv.netrc) {
 		});
 	}
 	
+}
+
+if(argv.defs) {
+	var jldef = require("./jlambda-define.js");
+	jldef.loadGlobalDefinitions(argv.defs, "*");
 }
 
 var pretty = !! argv.pretty;
