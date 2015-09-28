@@ -1042,9 +1042,10 @@ var makeSpecialOperation = function(obj, ctx) {
 				
 				return arrayfier(mFN);
 			}else{
-				ctx.failed = true;
-				ctx.failures.push("for f: " + obj.f + " the fields attribute ought to be a map and is required");
-				return null;
+				var mFN = function(item) {
+					return baseF(item);
+				};
+				return arrayfier(mFN);
 			}
 			
 		}else{
@@ -1418,7 +1419,7 @@ var functionator = function(obj,ctx) {
 		return obj;
 	}
 	if(!ctx) throw new Error("Context must be passed");
-	
+	if(ctx.failed) return null;
 
 	for(var i =0; i< preFunctionators.length;i++) {
 		if(preFunctionators[i].check(obj)) {
@@ -1467,6 +1468,9 @@ var functionator = function(obj,ctx) {
 	} 
 	if(FN != null) { 
 		FN._code_ = _.clone(obj); 
+	}else{
+		ctx.failed = true;
+		ctx.failures.push("could not interpret " + (_.isArray(obj)? "array" : JSON.stringify(obj)));
 	}
 	return FN;
 };
