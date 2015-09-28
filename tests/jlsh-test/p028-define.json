@@ -1,0 +1,32 @@
+{"payload":  [
+	{"Name":"John","Age":33,"Group":"alpha","Color":"white"},
+	{"Name":"Jake","Age":32,"Group":"alpha","Color":"white"},
+	{"Name":"Joe","Age":45,"Group":"gamma-c","Color":"green"},
+	{"Name":"Jeff","Age":34,"Group":"zeta","Color":"brown"},
+	{"Name":"Justin","Age":29,"Group":"zeta","Color":"brown"},
+	{"Name":"Bob","Age":67},{"Name":"Bill","Age":76},
+	{"Name":"Jane","Age":54, "Group":"colon"},
+	{"Name":"Julie","Age":23,"Group":"beta"},
+	{"Name":"Jabba","Age":542,"Group":"Xi"}
+
+ ],
+ "define":true, "//": "the define flag here is only for the test case to load the jlamba-define.js module",
+  
+  "lambda": {
+    "define": {
+	     "/concat-name-group": {"f":"paste", "sep":"-", "apply":{"conc":["Name", "Group"]}}
+     },
+     "then":
+     {"chain":[
+        {"exec": "/concat-name-group"},
+        {"pluck": {"n":"Name", "id":"conc"}}
+      ]}
+  },
+  
+  
+  "expect": [
+    {"n":"John","id":"John-alpha"},{"n":"Jake","id":"Jake-alpha"},{"n":"Joe","id":"Joe-gamma-c"},
+    {"n":"Jeff","id":"Jeff-zeta"},{"n":"Justin","id":"Justin-zeta"},{"n":"Bob","id":"Bob-"},
+    {"n":"Bill","id":"Bill-"},{"n":"Jane","id":"Jane-colon"},{"n":"Julie","id":"Julie-beta"},{"n":"Jabba","id":"Jabba-Xi"}
+    ]
+}

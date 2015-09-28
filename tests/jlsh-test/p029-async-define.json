@@ -1,0 +1,26 @@
+{"payload":[],
+ "async":true, "define":true,
+
+ "lambda":
+  {
+  	"define": {
+	     "/main-terms": 
+        { "with": 0, "chain": [ {"pluck": "lfs"}, {"map":{"pluck":{"lf":"lf"}} ]}
+     },
+     
+     "then":
+     {"async": {"get": "http://www.nactem.ac.uk/software/acromine/dictionary.py?sf=BMI", "json":true},
+      "then":
+       {"chain":[
+           {"exec":"/main-terms"},
+           [
+             {"grep":{"f":"regexp", "match":"machine", "field":"lf"}},
+             {"grep":{"f":"regexp", "match":"medical"}}
+           ]
+       ]}
+     }
+  },
+  
+  "expect": [["brain-machine interface"],["biomedical informatics"]]
+  
+}

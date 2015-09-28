@@ -1,0 +1,24 @@
+{"payload":  [ 
+  
+	{"Name":"John","Age":33,"Group":"alpha","Color":"white"},
+	{"Name":"Jake","Age":32,"Group":"alpha","Color":"white"},
+	{"Name":"Joe","Age":45,"Group":"gamma-c","Color":"green"},
+	{"Name":"Jeff","Age":34,"Group":"zeta","Color":"brown"},
+	{"Name":"Justin","Age":29,"Group":"zeta","Color":"brown"},
+	{"Name":"Bob","Age":67},{"Name":"Bill","Age":76},
+	{"Name":"Jane","Age":54, "Group":"colon"},
+	{"Name":"Julie","Age":23,"Group":"beta"},
+	{"Name":"Jabba","Age":542,"Group":"Xi"}
+
+ ],
+  "define": true, "//": "the define flag is to make sure we run with the jlambda-define.js module loaded: it is required for the test!",
+  
+  "lambda": {"chain":[
+     {"exec": "qwe/user-study-list"},
+     {"pluck": {"u":"Name", "s":"Age"}}
+  ]},
+  
+  
+  "expectFailure": true,
+  "//": "we expect a failure because exec global are not supported by default"
+}
