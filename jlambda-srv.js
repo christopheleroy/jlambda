@@ -14,6 +14,7 @@ var argv = parseArgs(process.argv);
 
 
 configureAsyncJlambda(argv);
+configureGlobalDefinitions(argv);
 
 
 jlsrv.get("/jlambda", function(req,res) {
@@ -137,7 +138,13 @@ function configureAsyncJlambda(argv) {
 			ajl.addAuth(".*", null,null, argv.cookie);
 		}
 	}
+}
 
+function configureGlobalDefinitions(argv) {
+	if(argv.defs) {
+		var djl = require("./jlambda-define.js");
+		djl.loadGlobalDefinitions(argv.defs, "*");		
+	}
 }
 
 
