@@ -940,6 +940,7 @@ var makeSpecialOperation = function(obj, ctx) {
 				}
 				
 				mFN = function(item) {
+					item = _.clone(item);
 					_.each(apply, function(fields, from) {
 						if(applyArrays[from]) {
 							var inp = _.map(fields, function(f) { return item[f];});
@@ -1365,6 +1366,28 @@ var makeReducer = function(obj, ctx) {
 	// this operation will support the 'with:' wizardry
 	var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
 	if(ctx.failed) return null;
+	
+	if(obj.reduce == "union") {
+		var FN = function(aCtx) {
+			if(aCtx.mode == 'streamset')  {
+				aCtx.outp = _.reduce(aCtx.inp, function(union, stream) {
+					if( _.isArray(stream) ) 
+						return _.reduce(stream, function(U,item) {
+							U.push(item);return U;
+						},union);
+					else {
+						union.push(stream);
+						return union;
+					}
+				},[]);				
+			}else{
+				aCtx.outp = aCtx.inp;
+			}
+			return aCtx;
+		};
+		FN.isFunctionated = true;
+		return FN;
+	}
 
 	if(obj.reduce) {
 		var redFN = functionator(obj.reduce, ctx);
@@ -1374,7 +1397,7 @@ var makeReducer = function(obj, ctx) {
 		var startingWith = obj.start;
 		var skipFailed = !!obj.skipFailed;
 		var FN = function(aCtx) {
-			if(aCtx.mode = 'stream') {
+			if(aCtx.mode == 'stream') {
 				var outp = _.reduce(aCtx.inp, function(X, item) {
 					// console.log([X,item]);
 					if(_.isUndefined(X)) {
