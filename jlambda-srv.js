@@ -31,7 +31,6 @@ jlsrv.get("/jlambda", function(req,res) {
 	if(format == 'json') 
 		res.set('Content-type', 'application/json');
 
-debugger;
 	if(payloadJson && lambdaJson) {
 		try {
 			if(wrap) {
