@@ -10,6 +10,7 @@ var jlambda = require("./jlambda-core.js");
 
 var _configuredAuth = [];
 var _configuredProxy = [];
+var _globReportTime = false;
 
 function addAuth(hostPattern, username, password, cookie) {
 
@@ -25,6 +26,9 @@ function addProxy(hostPattern, proxy) {
 
 exports.addAuth = addAuth;
 exports.addProxy = addProxy;
+exports.addReportingTime = function(bool) { 
+	_globReportTime = !! bool;
+}
 
 function twoStepFinder(array1, array2, finder) {
 	var found = null;
@@ -108,6 +112,16 @@ function thenFailThis(aCtx,data) {
 	aCtx.done();
 }
 
+function reportingTime(start,end,url,err,httpResponse) {
+	if(_.isNull(end)) {
+		end = (new Date()).getTime();
+	}
+	console.info({url: url, start: start, duration: (end-start), 
+					error: (!_.isNull(err)),
+		statusCode: (_.isNull(err) && httpResponse ? null: httpResponse.statusCode)})
+}
+
+
 
 jlambda.addPrefunctionator(
 	function(obj, ctx) {
@@ -118,13 +132,17 @@ jlambda.addPrefunctionator(
 
 		//relevant perhaps for gets and posts - but nothing else...
 		var statusCodeOK = obj.async.okCodes ? obj.async.okCodes :
-					obj.async.okCode ? [ obj.async.okCode ] : [200];
+					obj.async.okCode ? [ obj.async.okCode ] : [200,304];
 
-	    var ajson = !!obj.async.json;
+	    var ajson = _.isUndefined(obj.async.json) ? true : (!!obj.async.json);
+		
 		var mode = obj.async.mode || 'straight';
 
 		var adaptor = obj.adapt ? jlambda.functionator(obj.adapt,ctx) : null;
 		var wrap    = obj.wrap;
+		
+		var reportTiming = (!!obj.async.timing)||_globReportTime;
+
 
 		if(ctx.failed) return null;
 		if(adaptor && adaptor.isAsynchronous) {
@@ -141,7 +159,8 @@ jlambda.addPrefunctionator(
 			if(_.isString(http)) {
 				var statusCodeOK = obj.async.okCodes ? obj.async.okCodes :
 					obj.async.okCode ? [ obj.async.okCode ] : [200];
-
+					
+				
 				var thenFN = _.isUndefined(obj.then) ? null : jlambda.functionator(obj.then, ctx);
 				if(ctx.failed) return null;
 
@@ -153,13 +172,17 @@ jlambda.addPrefunctionator(
 					}
 
 					injectConfiguration(opt, aCtx);
+					var start = reportTiming ? (new Date()).getTime(): 0;
 					request(opt, function(err, httpResponse, data) {
+						if(start) reportingTime(start,null, opt.url, err,httpResponse);
+
 						if(err) {
 							aCtx.failed = true;
 							aCtx.error  = err;
 							aCtx.done();
 						}else{
 							var statusCode = httpResponse.statusCode;
+							
 							if(_.contains(statusCodeOK, statusCode)) {
 								data = ajson ? JSON.parse(data) : data;
 								if(wrap && ! _.isArray(data)) data = [ data ];
@@ -199,7 +222,6 @@ jlambda.addPrefunctionator(
 					if(_.isUndefined(aCtx.done)) {
 						debugger;
 					}
-					debugger;
 					var bCtx = httpFN(aCtx);
 					if(bCtx.failed) {
 						thenFailThis(aCtx, null);
@@ -243,10 +265,12 @@ jlambda.addPrefunctionator(
 
 							var opt = _.isObject(it) ? _.clone(it) : 
 								_.isArray(it) && it.length>0 ? _.clone(it[0]) : {url: it};
-
+							
 							injectConfiguration(opt, aCtx);
+							var start = reportTiming ? (new Date()).getTime() : 0;
 							request(opt, function(err, response, data) {
-								if(err) {
+								if(start) reportingTime(start,null, opt.url, err,response);
+								if(err) { 
 									aCtx.failed = true;
 									aCtx.error_i = item.i;
 									aCtx.error = err;
