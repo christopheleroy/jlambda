@@ -29,7 +29,6 @@ var context = function(data, mode, doneFN) {
 	
 
 	var failures = [];
-// debugger;
 	if(_.isUndefined(mode) || _.isNull(mode)) { 
 		if(isArray) {
 			if(data.length>0) {
@@ -44,7 +43,7 @@ var context = function(data, mode, doneFN) {
 					         else mode = 'stream';
 				}else if(_.isString(data[0]) || _.isNumber(data[0])) {
 					var nonScalar = _.find(data, function(x) { return !(_.isString(x) || _.isNumber(x))});
-					if(nonScalar) {failures.push('not a stream of scalars'); }
+					if(nonScalar) {failures.push('not a stream of scalars'); debugger;}
 					         else mode = 'stream';
 				}
 			}else{
@@ -61,7 +60,7 @@ var context = function(data, mode, doneFN) {
 					hasObjects = true;
 				}else if(_.isString(data[key]) || _.isNumber(data[key]) || _.isBoolean(data[key])) {
 					hasScalars = true;
-				}else{
+				}else if(!_.isUndefined(data[key])) {
 					failures.push('map has surprising type');
 					break;
 				}
@@ -225,15 +224,19 @@ function makeReduceSpreader(spreadKey) {
 	return function(list, item) {
 		if(!item) return list;
 		var sublist = item[spreadKey];
-		if(sublist && _.isArray(sublist)) {
+		if(sublist && _.isArray(sublist)) { // if we have a real list for property 'spreadKey'
 			var template = _.clone(item);
 			delete template[spreadKey];
-			_.each(sublist, function(x) {
-				var instance = _.clone(template);
-				instance[spreadKey] = x;
-				list.push(instance);
-			});
-		}else{
+			if(sublist.length==0) { // when list is empty, still put the item, but without the empty list
+				list.push(template);
+			}else{ // when the list is not empty, clone the template and inject the list item into the property 'spreadKey'				
+				_.each(sublist, function(x) {
+					var instance = _.clone(template);
+					instance[spreadKey] = x;
+					list.push(instance);
+				});
+			}
+		}else{ // the item doesn't have the 'spreadKey' property, still add it
 			list.push(item);
 		}
 		return list;
@@ -315,7 +318,7 @@ var makePlucker = function (obj, ctx) {
 			aCtx.failed = true;
 			aCtx.failures.push("pluck in scalar mode ("+aCtx.mode+") is not supported.");
 		}
-		if(spreading) {
+		if(spreading) { 
 			aCtx.outp = _.reduce(aCtx.outp, spreader, []);
 		}
 		return aCtx;
@@ -498,7 +501,6 @@ var makeMapper = function(obj, ctx) {
 
 			aCtx.outp = _.map(aCtx.inp, function(Z) {
 				var ctZ = context(Z);
-				// debugger;
 				ctZ = mapFN(ctZ);
 				if(ctZ.failed) {
 					aCtx.failed = true;
@@ -653,7 +655,6 @@ var makePicker = function(picks, ctx) {
 
 			var FN = function(aCtx) {
 				var lambda = aCtx.lambda;
-				// debugger;
 				var modes = {};
 				var dataPrep = _.map(picks, function(i) {
 					if(_.isObject(i) && !_.isUndefined(i['$'])) {
@@ -731,9 +732,12 @@ var makePicker = function(picks, ctx) {
 							return _.map(fNames, function(n) { return item[n]; });
 						});
 						return contextNewInput(aCtx, inp);
+					}else if(aCtx.mode == 'object'){
+						var inp = _.map(fNames, function(n) { return aCtx.inp[n]});
+						return contextNewInput(aCtx,inp);
 					}else{
 						aCtx.failed =true;
-						aCtx.failures.push("with: operation with field names supported only in stream mode");
+						aCtx.failures.push("with: operation with field names supported only in stream mode or object mode");
 						return aCtx;
 					}
 				};
@@ -839,7 +843,6 @@ var makeSpecialOperation = function(obj, ctx) {
 	if(ctx.failed) return null;
 
 
-	// debugger;
 
 	function arrayfier(mFN) {
 		var objCache  =debug? obj : null;
@@ -883,7 +886,6 @@ var makeSpecialOperation = function(obj, ctx) {
 
 		if(obj.f == 'shift') {
 			var mFN = function(item) {
-				// debugger;
 				if(item.length && item.length>0) {
 					return item[0];
 				};
@@ -1264,7 +1266,7 @@ function makeConditional(obj, ctx) {
 						if(ctxTHEN.failed || ctxELSSE.failed) {
 							aCtx.failed = true;
 							if(ctxTHEN)  aCtx.failures = aCtx.failures.concat( _.map(ctxTHEN.failures, function (x) { return "in 'then': " + x;}));
-							if(ctxELSSE) aCtx.failures = aCtx.failures.contact(_.map(ctxELSSE.failures, function(x) { return "in 'else': " + x; }));
+							if(ctxELSSE) aCtx.failures = aCtx.failures.concat(_.map(ctxELSSE.failures, function(x) { return "in 'else': " + x; }));
 							return aCtx;
 						}else{
 							var outp = _.map(ctxIFF.outp, function(b,i) {
@@ -1362,6 +1364,28 @@ var makeLambda = function(obj, ctx) {
 };
 
 
+var makeBoxer = function(obj, ctx) {
+	// this operation will support the 'with:' wizardry
+	var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
+	if(ctx.failed) return null;
+
+	if(_.isString(obj.box) ) {
+		var defs = obj.defaults || {};
+		var box  = obj.box;
+		var FN = function(aCtx) {
+			aCtx = withFN(aCtx);
+			aCtx.outp = _.cloneDeep(defs);
+			aCtx.outp[box] = aCtx.inp;
+			return aCtx;
+		}
+		FN.isFunctionated = true;
+		return FN;
+	}else{
+		return nullForFailure(ctx, "box: parameter must be a string");
+	}
+};
+
+
 var makeReducer = function(obj, ctx) {
 	// this operation will support the 'with:' wizardry
 	var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
@@ -1369,6 +1393,7 @@ var makeReducer = function(obj, ctx) {
 	
 	if(obj.reduce == "union") {
 		var FN = function(aCtx) {
+			aCtx = withFN(aCtx);
 			if(aCtx.mode == 'streamset')  {
 				aCtx.outp = _.reduce(aCtx.inp, function(union, stream) {
 					if( _.isArray(stream) ) 
@@ -1397,6 +1422,7 @@ var makeReducer = function(obj, ctx) {
 		var startingWith = obj.start;
 		var skipFailed = !!obj.skipFailed;
 		var FN = function(aCtx) {
+			aCtx = withFN(aCtx);
 			if(aCtx.mode == 'stream') {
 				var outp = _.reduce(aCtx.inp, function(X, item) {
 					// console.log([X,item]);
@@ -1475,6 +1501,8 @@ var functionator = function(obj,ctx) {
 			FN =  makeChain(obj, ctx);
 		}else if(obj.zip) {
 			FN =  makeZipper(obj, ctx);
+		}else if(obj.box) {
+			FN = makeBoxer(obj,ctx);
 		}else if(obj.f) {
 			FN =  makeSpecialOperation(obj, ctx);
 		}else if(obj.grep || ((obj.select || obj.where) && ! obj.join)) {
@@ -1563,7 +1591,7 @@ function makeMerger(join, select) {
 				var out = {};
 				_.each(join,function(k,i){
 					_.each(_.keys(outs[i]), function(x) {
-						if(outs[i]) to[x] = outs[i][x];
+						if(outs[i]) out[x] = outs[i][x];
 					});
 				});
 				return out;
