@@ -60,7 +60,7 @@ var context = function(data, mode, doneFN) {
 					hasObjects = true;
 				}else if(_.isString(data[key]) || _.isNumber(data[key]) || _.isBoolean(data[key])) {
 					hasScalars = true;
-				}else if(!_.isUndefined(data[key])) {
+				}else if(!(_.isUndefined(data[key]) || _.isNull(data[key]))) {
 					failures.push('map has surprising type');
 					break;
 				}
@@ -182,7 +182,7 @@ var makeZipper = function(obj, ctx) {
 
 
 // prepare a function that extract data from a complex object along a path...
-function makeExtractorStep(path) {
+function makeExtractorStep(path,defaults) {
 	if(_.isString(path) || _.isNumber(path)) {
 		return function(obj,ctx) {
 		  	try {
@@ -206,11 +206,12 @@ function makeExtractorStep(path) {
 			map[f] = makeExtractorStep(p);
 			return map;
 		},{});
+		defaults = defaults || {};
 		return function(obj,ctx) {
 			return _.reduce(steps, function(outObj, p_x,f) {
 				outObj[f] = p_x(obj, ctx);
 				return outObj;
-			},{});
+			},_.clone(defaults));
 		};
 	}else{
 		return function(x,ctx) { ctx.failed=true; ctx.failures.push("null step in extractor"); return null; }
@@ -292,10 +293,11 @@ var makePlucker = function (obj, ctx) {
 			return null;
 		}
 	}else if(!isPlain) {
-		extractor = makeExtractorStep(plKey);
+		var def = obj.defaults || {};
+		extractor = makeExtractorStep(plKey,def);
 	}
 	
-
+	
 
 	 var FN = function(aCtx) { 
 	 	aCtx = withFN(aCtx);
@@ -1386,6 +1388,16 @@ var makeBoxer = function(obj, ctx) {
 };
 
 
+var makeLiteraller = function(obj, ctx) {
+	var litt = _.cloneDeep(obj["##"]);
+	var FN = function(aCtx) {
+		aCtx.outp = _.clone(litt);
+		return aCtx;
+	};
+	FN.isFunctionated = true;
+	return FN;
+}
+
 var makeReducer = function(obj, ctx) {
 	// this operation will support the 'with:' wizardry
 	var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
@@ -1515,6 +1527,8 @@ var functionator = function(obj,ctx) {
 			FN = makeAndOr(obj,ctx);
 		}else if(obj.debug) {
 			FN = makeDebugger(obj.debug, ctx);
+		}else if(!_.isUndefined(obj['##'])) {
+			FN = makeLiteraller(obj,ctx);
 		}
 	} 
 	if(FN != null) { 
