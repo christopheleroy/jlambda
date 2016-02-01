@@ -1,0 +1,37 @@
+{"payload":
+	[
+	    {"name": "John", "age": 33, "level": "A" },
+	     {"name": "Jake", "age": 32, "level": "A" },
+	     {"name": "Joe", "age": 45, "level": "C"},
+	     {"name": "Jeff", "age": 34, "level":"Z"},
+	     {"name": "Jane", "age": 54, "level": "Q"},
+	     {"name": "Julie", "age": 23, "level":"B"},
+	     {"name": "Jabba", "age": 542, "level":"X"},
+	     {"name": "Justin", "age":29, "level":"Z"}
+	  ],
+
+ "comments": "melt is a way to pivot or unpivot things, look at 'reshape' module of the R world...",         
+
+ "lambda": {"melt": {"id":["name"]}},
+
+ 
+ "expect" : [
+      {"name":"John","var":"age","val":33},
+      {"name":"John","var":"level","val":"A"},
+      {"name":"Jake","var":"age","val":32},
+      {"name":"Jake","var":"level","val":"A"},
+      {"name":"Joe","var":"age","val":45},
+      {"name":"Joe","var":"level","val":"C"},
+      {"name":"Jeff","var":"age","val":34},
+      {"name":"Jeff","var":"level","val":"Z"},
+      {"name":"Jane","var":"age","val":54},
+      {"name":"Jane","var":"level","val":"Q"},
+      {"name":"Julie","var":"age","val":23},
+      {"name":"Julie","var":"level","val":"B"},
+      {"name":"Jabba","var":"age","val":542},
+      {"name":"Jabba","var":"level","val":"X"},
+      {"name":"Justin","var":"age","val":29},
+      {"name":"Justin","var":"level","val":"Z"}
+      
+     ]
+}

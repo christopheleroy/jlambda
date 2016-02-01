@@ -1,0 +1,36 @@
+{"payload":
+[
+ 	{"Name":"John","Age":33,"Group":"alpha","Color":"white","Factor":100},
+ 	{"Name":"Jake","Age":32,"Group":"alpha","Color":"white","Factor":100},
+ 	{"Name":"Joe","Age":45,"Group":"gamma-c","Color":"green","Factor":19},
+ 	{"Name":"Jeff","Age":34,"Group":"zeta","Color":"brown","Factor":1000},
+ 	{"Name":"Justin","Age":29,"Group":"zeta","Color":"brown","Factor":1000},
+ 	{"Name":"Bob","Age":67},
+ 	{"Name":"Bill","Age":76,"Factor":9001},
+ 	{"Name":"Jane","Age":54,"Group":"colon"},
+ 	{"Name":"Julie","Age":23,"Group":"beta","Factor":201},
+ 	{"Name":"Jabba","Age":542,"Group":"Xi"}
+   ],
+   
+  "lambda": {"melt": {"id":["Name","Age"], 
+                        "vars": ["Group", "Color"],
+                        "names": ["category", "value"]}},
+  
+  
+  "expect": 
+    [
+        {"Name":"John","Age":33,"category":"Group","value":"alpha"},
+        {"Name":"John","Age":33,"category":"Color","value":"white"},
+        {"Name":"Jake","Age":32,"category":"Group","value":"alpha"},
+        {"Name":"Jake","Age":32,"category":"Color","value":"white"},
+        {"Name":"Joe","Age":45,"category":"Group","value":"gamma-c"},
+        {"Name":"Joe","Age":45,"category":"Color","value":"green"},
+        {"Name":"Jeff","Age":34,"category":"Group","value":"zeta"},
+        {"Name":"Jeff","Age":34,"category":"Color","value":"brown"},
+        {"Name":"Justin","Age":29,"category":"Group","value":"zeta"},
+        {"Name":"Justin","Age":29,"category":"Color","value":"brown"},
+        {"Name":"Jane","Age":54,"category":"Group","value":"colon"},
+        {"Name":"Julie","Age":23,"category":"Group","value":"beta"},
+        {"Name":"Jabba","Age":542,"category":"Group","value":"Xi"}
+    ]
+ }
