@@ -166,7 +166,7 @@ function loadGlobalDefinitions(src, allApps, appMap, fs, depthMax) {
 				console.info("for JSON " + src + ": no 'define' object found. Skipped");
 				return ;
 			}
-			var ctx = jlambda.context();debugger;
+			var ctx = jlambda.context();
 			ctx.globalDefsAllowed = allApps || appMap;
 			var defFN = jlambda.functionator(json,ctx);
 			if(defFN && ! ctx.failed) {
