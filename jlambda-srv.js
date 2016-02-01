@@ -16,23 +16,9 @@ var argv = parseArgs(process.argv);
 configureAsyncJlambda(argv);
 configureGlobalDefinitions(argv);
 
-
-jlsrv.get("/jlambda", function(req,res) {
-	var q = req.query;
-	var cookies = _.clone(req.cookies);
-
-	var payloadJson = q.payload || q.p;
-	var lambdaJson  = q.lambda || q.l;
-	var inJson      = q.jp;
-	var wrap        = q.wrap || q.w;
-	var format      = q.format || q.f || 'json';
-
-	var payload = null, lambda = null;
-	if(format == 'json') 
-		res.set('Content-type', 'application/json');
-
-	if(payloadJson && lambdaJson) {
-		try {
+function parsePayload(payloadJson, wrap) {
+	var payload = [];
+	try {
 			if(wrap) {
 				if(wrap == ',' || wrap == '|') {
 					payload = payloadJson.split(wrap);
@@ -42,9 +28,30 @@ jlsrv.get("/jlambda", function(req,res) {
 			}else{
 					payload = JSON.parse(payloadJson);
 			}
-		}catch(e) {
-			payload = null;
-		}
+	}catch(e) {
+		payload = null;
+	}
+	return payload;
+}
+
+jlsrv.get("/jlambda", function(req,res) {
+	var q = req.query;
+	var cookies = _.clone(req.cookies);
+
+	var payloadJson = q.payload || q.p;
+	var lambdaJson  = q.lambda || q.l;
+	var inJson      = q.jp;
+	var exec        = q.exec || q.x;
+	var wrap        = q.wrap || q.w;
+	var format      = q.format || q.f || 'json';
+
+	var payload = null, lambda = null;
+	if(format == 'json') {
+		res.set('Content-type', 'application/json');
+	}
+
+	if(payloadJson && lambdaJson) {
+		payload = parsePayload(payloadJson, wrap);
 		try {
 			lambda = JSON.parse(lambdaJson);
 		}catch(e) {
@@ -72,6 +79,15 @@ jlsrv.get("/jlambda", function(req,res) {
 					(_.isNull(lambda)  ? '(lambda missing)': '') + '"}');
 			return;
 		}
+	}else if(exec) {
+		lambda = {exec: exec};
+		if(payloadJson) {
+			payload = parsePayload(payloadJson, wrap);
+			if(_.isNull(payload)) {
+				res.status(500).send('{"error":"Payload json could not be parsed"}');
+				return;
+			}
+		}
 	}
 	if(_.isNull(lambda) || _.isNull(payload)) {
 		res.status(500).send('{"error":"No parameters were detected", "help": ["Use lambda or l for the lambda expression.", "Use payload or p for the payload expression.", "Use jp for both."]}');
@@ -94,6 +110,12 @@ jlsrv.get("/jlambda", function(req,res) {
 				var csv = uti.convertJSONToCSV(this.outp, reportDef, ",");
 				res.set('Content-type', 'application/vnd.ms-excel');
 				res.status(200).send(csv);
+			}else if(format == 'html' || format == 'HTML') {
+				var columns = uti.listColumns(this.outp);
+				var reportDef = uti.makeReportsDef(columns);
+				var html = uti.convertJSONToHTML(this.outp, reportDef);
+				res.set('Content-type', 'text/html');
+				res.status(200).send("<html><head></head><body>"+html+"</body></html>");
 			}else{
 				res.status(200).send(JSON.stringify(this.outp));
 			}
