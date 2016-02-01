@@ -96,6 +96,7 @@ function thenDoThis(aCtx, thenFN, data, mode, adaptor) {
 			aCtx.outp = this.outp;
 			aCtx.done();
 		});
+		if(aCtx.cookies) bCtx.cookies = aCtx.cookies;
 		cCtx = thenFN(bCtx);
 		if(!thenFN.isAsynchronous) {
 			cCtx.done();
@@ -105,6 +106,7 @@ function thenDoThis(aCtx, thenFN, data, mode, adaptor) {
 		aCtx.done();
 	}
 }
+exports._thenDoThis = thenDoThis;
 
 function thenFailThis(aCtx,data) {
 	aCtx.failed = true;
@@ -170,7 +172,7 @@ jlambda.addPrefunctionator(
 					if(_.isUndefined(aCtx.done)) {
 						debugger;
 					}
-
+					
 					injectConfiguration(opt, aCtx);
 					var start = reportTiming ? (new Date()).getTime(): 0;
 					request(opt, function(err, httpResponse, data) {
@@ -279,8 +281,8 @@ jlambda.addPrefunctionator(
 									if(ajson) {
 										try { 
 											data = JSON.parse(data);
-										}catch(e) {
-											overallOUTP[item.it]={"straight-outp":data, outp:[], statusCode: response.statusCode, ok: false};
+										}catch(e) { 
+											overallOUTP[item.i]={"straight-outp":data, outp:[], statusCode: response.statusCode, ok: false};
 											return cb();
 										}
 									}
