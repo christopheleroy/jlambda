@@ -544,6 +544,242 @@ function isPickable(x, ctx) {
 }
 
 
+
+var makeMelter = function(obj, ctx) {
+    
+    var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
+	if(ctx.failed) return null;
+
+    
+    var idKeys = obj.melt.id;
+    var vars   = obj.melt.vars;
+    var excludeVars = obj.melt.excludeVars;
+    var includeByRegexp = obj.melt.includeByRegexp;
+    var excludeByRegexp = obj.melt.excludeByRegexp;
+    var names = obj.melt.names || ['var', 'val'];
+    
+    if(_.isString(idKeys)) {
+        idKeys = [ idKeys ];
+    }
+    
+    
+    
+    function lIndex(m,x) { m[x]=true;return m;}
+    function cregx(regex, regexpname, ctx) {
+        if(regex) {
+            var rg1, rg2;
+            
+            if(_.isArray(regex)) {
+                if(regex.length>2) {
+                    ctx.failed = true;
+                    ctx.failures.push(regexpname+ " (for melt): expression needs to be a string, or 2 strings - not more");
+                    return null;
+                }
+                rg1 = regexp[0];
+                rg2 = regexp.length>1 ? regexp[1] : "";
+            }else{
+                rg1 = regex;
+                rg2 = "";
+            }
+            try {
+                regex = new RegExp(rg1, rg2);
+            }catch(e) {
+                ctx.failed = true;
+                ctx.failures.push(regexpname+ " (for melt): expression did not compile as a regexp - " + e);
+                return null;
+            }
+        }
+        return regex;
+    }
+                
+    excludeByRegexp = cregx(excludeByRegexp, "excludeByRegexp", ctx);
+    includeByRegexp = cregx(includeByRegexp, "includeByRegexp",ctx);
+    if(ctx.failed) return null;
+    
+    var idInx = _.reduce(idKeys, lIndex,{});
+    var excludeInx = excludeVars ? _.reduce(excludeVars, lIndex,{}) : null;
+    var includeInx = vars ? _.reduce(vars, lIndex, {}) : null;
+    
+    if(!(excludeInx||includeInx)) { excludeInx = {}; }
+    
+    var transform =function(masterList,X) {
+        var z = _.reduce(idKeys, function(m,k) {
+            m[k] = X[k];
+            return m;
+        },{});
+        return _.reduce(X, function(L, v, k) {debugger;
+            if(idInx[k]) return L; 
+            if( (includeInx && includeInx[k]) ||
+                (excludeInx && !excludeInx[k]) ||
+                (includeByRegexp && k.match(includeByRegexp)) ||
+                (excludeByRegexp && ! k.match(excludeByRegexp))) {
+                    var zz = _.clone(z);
+                    zz[ names[0] ] = k;
+                    zz[ names[1] ] = v;
+                    L.push(zz);
+                }
+            return L;
+        },masterList);
+    };
+    
+    var FN = function(aCtx) {
+        aCtx = withFN(aCtx);
+        if(aCtx.failed) return aCtx;
+        
+        if(aCtx.mode == 'stream') {
+            aCtx.outp = _.reduce(aCtx.inp, transform, []);
+        }else{
+            aCtx.failed = true;
+            aCtx.failures.push("melt only supports streams, not " + 
+                aCtx.mode);
+        }
+        return aCtx;
+    };
+    
+    FN.isFunctionated = true;
+    return FN;
+}
+
+
+
+var makeCaster = function(obj, ctx) {
+    // this operation will support the 'with:' wizardry
+	var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
+
+    var idKeys = obj.cast.id;
+    var varKey = obj.cast.var || 'var';
+    var valKey = obj.cast.val || 'val';
+    
+    var keyMaker = null;
+    if(_.isString(idKeys)) {
+        idKeys = [ idKeys ];
+    }
+    if(_.isArray(idKeys) && idKeys.length >0) {
+        var len = idKeys.length;
+        // we're extra careful to be extra efficient for small len-s
+        if(len<6) {
+            var a=idKeys[0];
+            var b=idKeys[1];
+            var c=idKeys[2];
+            var d=idKeys[3];
+            var e=idKeys[4];
+            keyMaker = len ==1 ? 
+                function(z) { return z[a];} : 
+                len ==2 ? 
+                function(z) { return [z[a],z[b]].join("{|*|}"); } :
+                len ==3 ? 
+                function(z) { return [z[a],z[b], z[c]].join("{|*|}");} :
+                len ==4 ? 
+                function(z) { return [z[a],z[b], z[c], z[d] ].join("{|*|}");} : 
+                function(z) { return [z[a],z[b], z[c], z[d], z[e]].join("{|*|}");};
+
+        }else{
+            keyMaker = function(z) {
+                return _.reduce(idKeys, function(l, k) {
+                    l.push(z[k]);
+                    return l;
+                },[]).join("{|*|}");
+            };
+        }
+    }else{
+        ctx.failed = true;
+        ctx.push("cast: id must be an array (and not an empty one)");
+    } 
+    
+    
+    var FN = function(aCtx) {
+        aCtx = withFN(aCtx);
+        if(aCtx.failed) return aCtx;
+        
+        if(aCtx.mode != 'stream') {
+            aCtx.failed = true;
+            aCtx.failures.push("cast: expected a stream, got a " + aCtx.mode);
+            return aCtx;
+        }
+        
+        var inx = _.reduce(aCtx.inp, function(_inx, x) {
+            var key = keyMaker(x);
+            if(!_inx[key]) _inx[key] = [];
+            _inx[key].push(x);
+            return _inx;
+        },{});
+        
+        aCtx.outp = _.reduce(inx, function(masterList, list) {
+            var x0  = list[0];
+            var item = _.reduce(idKeys, function(it, k) {
+                it[k] = x0[k];
+                return it;
+            },{});
+            item = _.reduce(list, function(it, x) {
+                var k = x[varKey];
+                var v = x[valKey];
+                if(!it[k]) it[k]=[];
+                it[k].push(v);
+                return it;
+            },item);
+            masterList.push(item);
+            return masterList;
+        },[]);
+        return aCtx;
+    };
+    FN.isFunctionated =true;
+    
+    return FN;
+    
+    
+    
+}
+
+
+ 
+ 
+var makeTwoStep = function(obj,ctx) {
+    // this operation will support the 'with:' wizardry
+	var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
+
+    var first = obj.first;
+    var then  = obj.then;
+    
+    if(! (first && then)) {
+        ctx.failed = true;
+        ctx.failures.push("first/then: both are required ...");
+        return null;
+    }
+    
+    first = functionator(first, ctx);
+    if(ctx.failed) {
+        ctx.failures.push("first: could not functionate...");
+        return null;
+    }
+    then = functionator(then, ctx);
+    if(ctx.failed) {
+        ctx.failures.push("then (for first): could not functionate...");
+        return null;
+    }
+    var FN = function(aCtx) {
+        aCtx = withFN(aCtx);
+        if(aCtx.failed) return aCtx;
+        
+        var bCtx = first(aCtx);
+        if(bCtx.failed) return bCtx;
+        var cCtx = context(bCtx.outp);
+        cCtx = then(cCtx);
+        return cCtx;
+    };
+    
+    FN.isFunctionated = true;
+    return FN;
+} 
+
+
+
+
+
+
+
+
+
+
 var makePicker = function(picks, ctx) {
 
 
@@ -1291,6 +1527,65 @@ function makeConditional(obj, ctx) {
 	}
 	return null;
 }
+
+
+var makeApplyer = function(obj, ctx) {
+	var applyArr = obj.apply;
+	
+	if(_.isObject(applyArr)) {
+		var applyMap = _.reduce(applyArr, function(mm,exp,name) {
+			var ctxx = context();
+			var FN = functionator(exp,ctxx);
+			if(ctxx.failed) {
+				ctx.failed=true;
+				ctx.failures = ctx.failures.concat(_.map(ctxx.failures, function(fail) { return "(apply for key '" + name + "')" + fail;}));
+			}else{
+				mm[name] = FN;
+			}
+			return mm;
+		},{});
+		
+		if(ctx.failed) return null;
+			
+		var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
+		if(ctx.failed) return null;
+		
+		var zFN = function(aCtx) {
+			aCtx = withFN(aCtx);
+			if(aCtx.failed) return aCtx;
+			
+			if(aCtx.mode == 'stream' || aCtx.mode == 'streamset') {debugger;
+				var outp = _.map(aCtx.inp, function(item) {
+					var newItem = _.clone(item);
+					_.each(applyMap, function(FN, name){
+						var lCtx = context(item);
+						lCtx = FN(lCtx);
+						if(!lCtx.failed) newItem[name] = lCtx.outp;
+					});
+					return newItem;
+				});
+				aCtx.outp = outp;
+			}else{
+				var outp = _.clone(aCtx.inp);
+				_.each(applyMap, function(FN, name) {
+					var lCtx = context(aCtx.inp);
+					lCtx = FN(lCtx);
+					if(!lCtx.failed) outp[name] = lCtx.outp;
+				});
+				aCtx.outp = outp;
+			}
+			return aCtx;
+		};
+		zFN.isFunctionated = true;
+		return zFN;
+		
+	}else{
+		ctx.failures.push("apply: must be a map/object");
+		ctx.failed = true;
+		return null;
+	}
+}
+
 var makeLambda = function(obj, ctx) {
 	var lambda = obj.lambda;
 	var value = obj.value;
@@ -1497,6 +1792,12 @@ var functionator = function(obj,ctx) {
 	}else if(_.isObject(obj)) {
 		if(obj["!"]) {
 			FN = makeSpecialOperation({f:"id"},ctx);
+        }else if(obj.first) {
+            FN = makeTwoStep(obj, ctx);
+        }else if(obj.melt) {
+            FN = makeMelter(obj, ctx);
+        }else if(obj.cast) {
+            FN = makeCaster(obj,ctx);
 		}else if(obj.pluck) {
 			FN =  makePlucker(obj,ctx);
 		}else if(obj.rename) {
@@ -1523,6 +1824,8 @@ var functionator = function(obj,ctx) {
 			FN =  makeLambda(obj, ctx);
 		}else if(!_.isUndefined(obj['$'])) {
 			FN =  makeDeLambda(obj, ctx);
+		}else if(obj.apply) {
+			FN= makeApplyer(obj,ctx);
 		}else if(obj.or || obj.and) {
 			FN = makeAndOr(obj,ctx);
 		}else if(obj.debug) {
