@@ -16,6 +16,33 @@ exports.listColumns=function(json) {
   return _.keys(cols);
 }
 
+
+exports.convertJSONToHTML = function(json,reportDef) {
+  function tableCell(value,th) {
+    if(_.isUndefined(value) || _.isNull(value)) return "";
+    value = value.toString();
+    return th ? "<th>"+value+"</th>": "<td>"+value+"</td>";
+  }
+  
+  var columnNames = _.pluck(reportDef, 'cn');
+  var headerRow = _.map(reportDef, function(C) {
+    if(C.lbl) {
+      return tableCell(C.lbl,true);
+    }else{
+      return tableCell(C.cn,true);
+    }
+  });
+  var resultsString = "<table>\n<tr>"+headerRow.join("")+"</tr>\n";
+  if(_.size(json)==0) { json = {} }
+  _.each(json, function(record) {
+      var row = (_.map(columnNames, function(col) {
+        return tableCell(record[col]);
+      })).join("");
+      resultsString += "<tr>"+row+"</tr>\n";    
+  });
+  return resultsString + "</table>\n";  
+}
+
 exports.convertJSONToCSV = function (json, reportDef, sep) {
   function csvCell(value,rgxp) {
     if(_.isUndefined(value) || _.isNull(value)) return "";
