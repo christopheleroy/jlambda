@@ -600,14 +600,14 @@ var makeMelter = function(obj, ctx) {
     var excludeInx = excludeVars ? _.reduce(excludeVars, lIndex,{}) : null;
     var includeInx = vars ? _.reduce(vars, lIndex, {}) : null;
     
-    if(!(excludeInx||includeInx)) { excludeInx = {}; }
+    if(!(excludeInx||includeInx || excludeByRegexp || includeByRegexp)) { excludeInx = {}; }
     
     var transform =function(masterList,X) {
         var z = _.reduce(idKeys, function(m,k) {
             m[k] = X[k];
             return m;
         },{});
-        return _.reduce(X, function(L, v, k) {debugger;
+        return _.reduce(X, function(L, v, k) {
             if(idInx[k]) return L; 
             if( (includeInx && includeInx[k]) ||
                 (excludeInx && !excludeInx[k]) ||
@@ -824,7 +824,7 @@ var makePicker = function(picks, ctx) {
 
 				if(aCtx.inp.length < pmax) {
 					aCtx.failed = true;
-					aCtx.failures.push("Data is of size " + actx.inp.length + " but " + pmax + " is expected");
+					aCtx.failures.push("Data is of size " + aCtx.inp.length + " but " + pmax + " is expected");
 					return aCtx;
 				}else{
 					// In streamset - build a new streamset, expanding literals (if any) to the max length of all streams.
@@ -1072,34 +1072,10 @@ var makePicker = function(picks, ctx) {
 exports.unfunctionatedPicker = makePicker;
 
 
-var makeSpecialOperation = function(obj, ctx) {
-	//f [upper, lower, length, num, join, regexp]  / set
 
-		// this operation will support the 'with:' wizardry
-	var debug = obj.debugger;
-	var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
-	if(ctx.failed) return null;
-
-
-
-	function arrayfier(mFN) {
-		var objCache  =debug? obj : null;
-		var FN =  function(aCtx) {
-			if(debug) { debugger; console.log(objCache); }
-			aCtx = withFN(aCtx);
-			if(aCtx.failed) return aCtx;
-
-			if(aCtx.mode == 'streamset' || aCtx.mode == 'stream') {
-				aCtx.outp = _.map(aCtx.inp, mFN);
-			}else{
-				aCtx.outp = mFN(aCtx.inp);
-			}
-			return aCtx;
-		};
-		FN.isFunctionated = true;
-		return FN;
-	}
-	if(obj.f) {
+function miniSpecialOpsBase(obj,ctx) {
+    
+ 	if(obj.f) {
 		var baseF = obj.f == 'lower' ? function(x) { return x.toLowerCase() } :
 			obj.f == 'upper' ? function(x) { return x.toUpperCase();} :
 			obj.f == 'length' ? function(x) { return x ? x.length : undefined; } : 
@@ -1108,19 +1084,40 @@ var makeSpecialOperation = function(obj, ctx) {
 			obj.f == 'not-empty' ? function(x) { return !(_.isNull(x) || _.isUndefined(x) || (_.isArray(x) && x.length == 0) ||(_.isObject(x) && _.keys(x).length ==0))} :
 			null;
 
-		if(obj.f == '>n' || obj.f == '>=n' || obj.f == '<n' || obj.f == '=<n' || obj.f == '==n') {
+		if(obj.f == '>n' || obj.f == '>=n' || obj.f == '<n' || obj.f == '=<n' || obj.f == '==n' || obj.f == '=~n@r%') {
 			var N = obj.n;
 			if(_.isUndefined(N)) {
 				return nullForFailure(ctx, "for " + obj.f + ", parameter n must be defined");
 			}
-			baseF =
-				obj.f == '>n' ? function(x) { return x>N; } : 
-				obj.f == '<n' ? function(x) { return x<N; } : 
-				obj.f == '>=n' ? function(x) { return x>=N; } : 
-				obj.f == '=<n' ? function(x) { return x<=N; } : 
-				obj.f == '==n' ? function(x) { return x == N; }: 
-				baseF;
+            var R = obj.r;
+            if(obj.f == '=~n@r%') {
+                if(_.isUndefined(R) || R==0) {
+                    return nullForFailure(ctx, "for =~n@r%, parameter r must be defined (and >0)");
+                }
+                R = Math.abs(R);
+                R = (N==0) ? R : (R<1 ? R : R/100);
+                var Nmin = (N==0) ? -R : N*(1-R);
+                var Nmax = (N==0) ? R  : N*(1+R);
+                if(Nmin> Nmax) { N = Nmin; Nmin = Nmax; Nmax = N;}
+                baseF = function(x) {
+                            return x<=Nmax && x>=Nmin;
+                };
+            }else{
+                baseF =
+                    obj.f == '>n' ? function(x) { return x>N; } : 
+                    obj.f == '<n' ? function(x) { return x<N; } : 
+                    obj.f == '>=n' ? function(x) { return x>=N; } : 
+                    obj.f == '=<n' ? function(x) { return x<=N; } : 
+                    obj.f == '==n' ? function(x) { return x == N; }: 
+                    baseF;
+            }
 		}
+        if(obj.f == '==s') {
+            var S = obj.s;
+            if(_.isUndefined(S)) {
+                return nullForFailure(ctx, "for ==s, parameter s must be defined and a string")
+            }
+        }
 
 		if(obj.f == 'shift') {
 			var mFN = function(item) {
@@ -1129,7 +1126,7 @@ var makeSpecialOperation = function(obj, ctx) {
 				};
 				return undefined;
 			};
-			return arrayfier(mFN);
+			return {fn: mFN, direct: true};
 
 		}else if(obj.f == 'pop') {
 			var mFN = function(item) {
@@ -1138,7 +1135,7 @@ var makeSpecialOperation = function(obj, ctx) {
 				}
 				return undefined;
 			};
-			return arrayfier(mFN);
+			return {fn: mFN, direct: true};
 		}
 
 		if(!baseF && obj.f == 'regexp') {
@@ -1191,14 +1188,13 @@ var makeSpecialOperation = function(obj, ctx) {
 					});
 					return item;
 				}
-				return arrayfier(mFN);
-			}
-			
-			mFN = function(item) {
-				if(item && item.join) { return item.join(sep); }
-				return item;
-			}
-			return arrayfier(mFN);
+			}else{
+                mFN = function(item) {
+                    if(item && item.join) { return item.join(sep); }
+                    return item;
+                }
+            }
+			return {fn: mFN, direct: true};
 		}
 		if(!baseF) {
 			var ff = obj.f;
@@ -1218,83 +1214,245 @@ var makeSpecialOperation = function(obj, ctx) {
 					var mFN = function(item) {
 						return _.reduce(item, fred, fst);
 					};
-					var FN = function(aCtx) {
-						aCtx = withFN(aCtx);
-						if(aCtx.failed) return aCtx;
-						if(aCtx.mode == 'stream' || aCtx.mode == 'pair' || aCtx.mode == 'array') {
-							aCtx.outp = mFN(aCtx.inp);
-							return aCtx;
-						}else if(aCtx.mode == 'streamset') {
-							aCtx.outp = _.map(aCtx.inp, mFN);
-							return aCtx;
-						}else{
-							nullForFailure(aCtx, "only stream and streamset are supported");
-							return aCtx;
-						}
-					};
-					FN.isFunctionated = true;
-					return FN;
+                    return {fn: mFN, reductive: true};
 				}
 			}
 		}
-		if(!baseF) {
-			if(obj.f == 'id') {
-				var mFN = function(item) { 
-					return item;
-				};
-				return arrayfier(mFN);
-			}
-		}
+        if(baseF) {
+            return {fn: baseF};
+        }
+        
+        if(obj.f == 'id') {
+            var mFN = function(item) {
+                return item;
+            };
+            return {fn: mFN, direct: true};
+        }
+     }
+     return null;
+}
 
-		if(baseF) {
-			if(obj.field || obj.fields) { 
-				var fields = obj.fields || obj.field;
-				if(_.isArray(fields)) {
-					fields = _.reduce(fields, function(m,x) { m[x] = x; return m; }, {});
-				}else if(_.isString(fields)) {
-					var x= {};
-					x[fields]=fields;
-					fields = x;
-				}else if(!_.isObject(fields)) {
-					ctx.failed =true;
-					ctx.failures.push("for f:" + obj.f + " the fields attribute ought to be a map");
-					return null;
-				}
+function wrapMiniOperation(ops,ctx, valueNotTest) {
+    if(valueNotTest && (_.isString(ops)||_.isNumber(ops))) {
+        var strConst = ops;
+        return {fn: function() { return strConst;}, reductive:false};
+    }
+    
+    var op = miniSpecialOpsBase(ops,ctx);
+    if(ops.from) {
+        var opFrom = ops.from;
+        var opFromString = _.isString(opFrom) ? opFrom : null;
+        var op0 = op.fn;
+        if(opFromString) {
+            op.fn = function(item) {
+                return item?op0(item[opFromString]):null;
+            };
+        }else{
+            op.fn = function(item) {
+                return op0(_.pick(item, opFrom));
+            };
+        }
+    }
+    return op;
+}
 
-				
-				var mFN = function(item) { 
-					var x = _.cloneDeep(item); 
-					_.each(fields, function(to,from) {
-						 
-						x[to] = baseF(x[from]) });
-					return x;
-				};
-				return arrayfier(mFN);
-			}else if(obj.from) {
-				var from = obj.from;
-				var loop = _.isArray(from);
-				var mFN =  function(item) {
-					if(loop) {
-						return _.map(from, function(k) { return baseF(item[k]); });
-					}else{
-						return _.isNull(item)  ? baseF(null) : baseF(item[from]);
-					}
-				};
-				
-				return arrayfier(mFN);
+var makeCaseWhenElse = function(obj, ctx) {
+    var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
+	if(ctx.failed) return null;
+
+    if(!_.isArray(obj.case) || !(_.isObject(obj.else) || _.isString(obj.else) || _.isNumber(obj.else))) {
+        return nullForFailure(ctx, "case: must be an array of simple expressions when/then and must have an else (simple) expression");
+    }
+    var cases = _.reduce(obj.case, function(list, clause) {
+        if(ctx.failed) return null;
+        if(_.isUndefined(clause.when) || _.isUndefined(clause.then)) {
+            return nullForFailure(ctx, 'case: the clause is incorrect: ' + JSON.stringify(clause));
+        }
+        var ww = wrapMiniOperation(clause.when, ctx);
+        var th = wrapMiniOperation(clause.then, ctx,true);
+        
+        if(ctx.failed) {
+            return nullForFailure(ctx, 'case: the clause could not compile: ' + JSON.stringify(clause));
+        }
+        list.push([ww,th]);
+        return list;
+        
+    },[]);
+    if(ctx.failed) { 
+        return null;
+    }
+    
+    var _else = wrapMiniOperation(obj.else, ctx,true);
+    if(ctx.failed) {
+        return null;
+    }    
+    
+    var field = obj.field;
+    if(!(_.isString(field) || _.isNull(field) || _.isUndefined(field))) {
+        return nullForFailure(ctx, "case: field must be a string");
+    }
+    
+    var cFN = function(item) {
+        
+        var hit = false;
+        var qx = _.reduce(cases, function(val, _case) {
+            if(hit) return val;
+            var when = _case[0];
+            if(when.fn(item)) {
+                hit =true;
+                val = _case[1].fn(item);
+            }
+            return val;
+        },null);
+        if(!hit) {
+            qx = _else.fn(item);
+        }
+        if(field) {
+            item = _.clone(item);
+            item[field] = qx;
+            return item;
+        }
+        return qx;
+    };
+    
+    var mFN = function(aCtx) {
+        aCtx = withFN(aCtx);
+        if(aCtx.failed) return aCtx;
+        
+        if(aCtx.mode == 'streamset' || aCtx.mode == 'stream') {
+            aCtx.outp = _.map(aCtx.inp, cFN);
+        }else{
+            aCtx.outp = cFN(aCtx.inp);
+        }
+        return aCtx;
+    };
+    
+    mFN.isFunctionated = true;
+    return mFN;
+
+
+}
+
+
+var makeSpecialOperation = function(obj, ctx) {
+	//f [upper, lower, length, num, join, regexp]  / set
+
+		// this operation will support the 'with:' wizardry
+	var debug = obj.debugger;
+	var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
+	if(ctx.failed) return null;
+
+
+
+	function arrayfier(mFN, reductive) {
+		var objCache  =debug? obj : null;
+		var FN =  function(aCtx) {
+			if(debug) { debugger; console.log(objCache); }
+			aCtx = withFN(aCtx);
+			if(aCtx.failed) return aCtx;
+
+			if((aCtx.mode == 'streamset' || aCtx.mode == 'stream') && !reductive) {
+				aCtx.outp = _.map(aCtx.inp, mFN);
 			}else{
-				var mFN = function(item) {
-					return baseF(item);
-				};
-				return arrayfier(mFN);
+				aCtx.outp = mFN(aCtx.inp);
 			}
-			
-		}else{
-			ctx.failed = true;
-			ctx.failures.push("could not interpret f:" + obj.f);
-			return null;
-		}
+			return aCtx;
+		};
+		FN.isFunctionated = true;
+		return FN;
 	}
+    
+    
+	if(obj.f) {
+		var baseX = miniSpecialOpsBase(obj,ctx);
+        if(!baseX) {
+            if(!ctx.failed) { 
+                return nullForFailure(ctx, "could nof interpret f:" + obj.f);
+            }
+            return null;
+        }
+        
+        if(baseX.direct) {
+            return arrayfier(baseX.fn);
+        }
+        
+        
+        if(obj.apply && (obj.field || obj.fields)) {
+            return nullForFailure(ctx, "f: cannot have both 'apply' and 'field(s)' applications");
+        }
+        if(obj.apply) {
+            var applyIssues = [];
+            var apply = obj.apply;
+            var applyArrays = _.reduce(apply, function(m, fields, from) {
+                if(_.isArray(fields)) {
+                    m[from]=true;
+                }else if(_.isString(fields)) {
+                    m[from]=false;
+                }else{
+                    applyIssues.push("for field "+ from+ ": input fields must be a list or a single field");
+                }
+                return m;
+            },{});
+            if(applyIssues.length>0) {
+                return nullForFailure(ctx,
+                    "for f:paste, issue with 'apply' :" + applyIssues.join("; "));
+            }
+            var mFN = baseX.fn;
+            var mFNApplied = function(item) {
+                item = _.clone(item);
+                _.each(apply, function(fields, from) {
+                    if(applyArrays[from]) {
+                        var inp = _.map(fields, function(f) { return item[f]; });
+                        item[from] = mFN(inp);
+                    }else{
+                        item[from] = mFN(item[fields]); // fields is not an array but a single value
+                    }
+                });
+            };
+            return arrayfier(mFNApplied);
+        }
+        
+        var baseF = baseX.fn;
+        if(obj.field || obj.fields) { 
+            var fields = obj.fields || obj.field;
+            if(_.isArray(fields)) {
+                fields = _.reduce(fields, function(m,x) { m[x] = x; return m; }, {});
+            }else if(_.isString(fields)) {
+                var x= {};
+                x[fields]=fields;
+                fields = x;
+            }else if(!_.isObject(fields)) {
+                return nullForFailure("for f:" + obj.f + " the fields attribute ought to be a map");
+            }
+
+            var mFN = function(item) { 
+                var x = _.clone(item); 
+                _.each(fields, function(to,from) {
+                    x[to] = baseF(x[from]) });
+                return x;
+            };
+            return arrayfier(mFN);
+        }else if(obj.from) {
+            var from = obj.from;
+            var loop = _.isArray(from);
+            var mFN =  function(item) {
+                if(loop) {
+                    return _.map(from, function(k) { return baseF(item[k]); });
+                }else{
+                    return _.isNull(item)  ? baseF(null) : baseF(item[from]);
+                }
+            };
+            
+            return arrayfier(mFN);
+        }else{
+            var mFN = function(item) {
+                return baseF(item);
+            };
+            return arrayfier(mFN, !!baseX.reductive);
+        }
+			
+    }
+    return null;
 }
 
 function makeGrep(obj, ctx) {
@@ -1669,10 +1827,13 @@ var makeBoxer = function(obj, ctx) {
 	if(_.isString(obj.box) ) {
 		var defs = obj.defaults || {};
 		var box  = obj.box;
+		var wrap = obj.wrap;
+
 		var FN = function(aCtx) {
 			aCtx = withFN(aCtx);
 			aCtx.outp = _.cloneDeep(defs);
 			aCtx.outp[box] = aCtx.inp;
+			if(wrap) aCtx.outp = [ aCtx.outp ];
 			return aCtx;
 		}
 		FN.isFunctionated = true;
@@ -1798,6 +1959,8 @@ var functionator = function(obj,ctx) {
             FN = makeMelter(obj, ctx);
         }else if(obj.cast) {
             FN = makeCaster(obj,ctx);
+        }else if(obj.case) {
+            FN = makeCaseWhenElse(obj,ctx);
 		}else if(obj.pluck) {
 			FN =  makePlucker(obj,ctx);
 		}else if(obj.rename) {
@@ -1890,14 +2053,116 @@ exports.longCartesian = longCartesian;
 // provide a function to merge outut of longCartesian into single objects
 function makeMerger(join, select) {
 	if(select) {
+        
+        // select is expect of the form {"a":{"x":"xyz", "q":"abc"}, "b":{"y":"xyz", "r":"abc"}}  [form 1]
+        // or {"a":{"x":"xyz", "q":"abc"}, "b":{"y":"xyz", "*":"*"} }                [form 2a]
+        // or {"a":{"x":"xyz", "q":"abc"}, "b":{"y":"xyz", "*":["abc","cde"]} }      [form 2b]
+        // or {"a":{"x":"xyz", "q":"abc"}, "b":{"y":"xyz", "ind_*":"*"}              [form 3a]
+        // or {"a":{"x":"xyz", "q":"abc"}, "b":{"y":"xyz", "ind_*":["abc","cde"]} }  [form 3b]
+        // or {"a":{"x":"xyz", "q":"abc"}, "b":{"y":"xyz", "*_sup":"*"}              [form 4a]
+        // or {"a":{"x":"xyz", "q":"abc"}, "b":{"y":"xyz", "*_sup":["abc","cde"]} }  [form 4b]
+        //
+        // form 2a will simply use all attributes, names unchanged
+        // form 2b will use xyz, abc and cde attributes, names unchanged for abc and cde and xyz is renamed y
+        // form 3a and 3b are similar to 2a and 2b, but instead "names unchanged", the name are prepended with ind_ (you'll get xyz, ind_abc, ind_cde  in form 3b)
+        // form 4a and 4b are similar to 3a/3b but "appended" instead of "prepended"...
+        
+        var selDigest = _.reduce(join, function(l, k, i) {
+            var digest = _.reduce(select[k], function(m, from, to) {
+                var zz = null;
+                if(to == '*') {
+                    zz= {from: from, isArray: _.isArray(from), isStar: (from == '*'), prependWith:'', appendWith:'' };
+                }else{
+                    var mmPRE = to.match(/^(\S.*)\*$/);
+                    var mmAPP = to.match(/^\*(.+)$/);
+                    if(mmPRE) {
+                        zz = {from: from, isArray: _.isArray(from), isStar: (from=='*'), prependWith: mmPRE[1], appendWith: ""};
+                    }else if(mmAPP) {
+                        zz = {from: from, isArray: _.isArray(from), isStar: (from=='*'), prependWith: "", appendWith: mmAPP[1]};
+                    }else{
+                        zz = {from: from, isDirect: true};
+                    }
+                }
+                if(zz) {
+                    if(zz.isDirect) {
+                        m.directs[to] = zz;
+                    }else if(zz.isArray) {
+                        m.arrays.push(zz);
+                    }else if(zz.isStar) {
+                        m.stars.push(zz);
+                    }else{
+                        try {
+                            var rgx = new RegExp(zz.from);
+                            zz.regexp = rgx;
+                            //zz.prependWith = zz.appendWith = "";
+                            m.neither.push(zz);
+                        }catch(e) {
+                            console.log(e);
+                            console.log("Cannot interpret 'select' piece for '"+zz.from+"'");
+                            console.log("{join:<join>,select:<select>}:");
+                            console.log(JSON.stringify({join:join,select:select}, null, 1));
+                        }
+                    }
+                }
+                return m;
+             },{stars:[], arrays:[], neither:[], directs:{}});
+             l.push(digest);
+             return l;
+        },[]);
+        debugger;
+        
 		return function(cartOuts) {
 			return _.map(cartOuts, function(outs){ 
 				var out = {};
 				_.each(join, function(k,i) {
-					var sels = select[k];
-					_.each(sels, function(from,to){
-						if(outs[i]) out[to] = outs[i][from];
-					});
+                    if(!outs[i]) return; // outs[i] has nothing to contribute...
+					// var sels = select[k];
+                    // if(sels['*']=='*') {
+                    //     _.each(_.keys(outs[i]), function(x) {
+                    //         out[x] = outs[i][x];
+                    //     });
+                    // }
+                    
+                    
+					// _.each(sels, function(from,to){
+                    //     if(to=='*' && _.isArray(from)) {
+                    //         _.each(from, function(x) {
+                    //             if(_.isUndefined(out[x])) out[x] = outs[i][x];
+                    //         });
+                    //     }else{
+					// 	   out[to] = outs[i][from];
+                    //     }
+					// });
+                    var selD = selDigest[i];
+                    var outs_i = outs[i];
+                    
+                    _.each(selD.directs, function(dg,to) {
+                        out[to] = outs_i[ dg.from ];
+                    });
+                    _.each(selD.neither, function(dg) {
+                        _.each(outs_i, function(v,k) {
+                            if(k.match(dg.regexp)) {
+                                out[ dg.prependWith + k + dg.appendWith ] = v;
+                            }
+                        });
+                    });
+                    _.each(selD.arrays, function(dg) {
+                        _.each(dg.from, function(k) {
+                            if(!_.isUndefined(outs_i[k])) {
+                                out[ dg.prependWith + k + dg.appendWith ] = outs_i[k];
+                            }
+                        });
+                    });
+                    
+                    _.each(selD.stars, function(dg) {
+                        _.each(outs_i, function(v,k) {
+                            var kk = dg.prependWith + k + dg.appendWith;
+                            if(_.isUndefined(out[kk])) {
+                                out[kk] = v;
+                            }
+                        });
+                    });
+                    
 				});
 				return out;
 			});
@@ -1907,8 +2172,9 @@ function makeMerger(join, select) {
 			return _.map(cartOuts, function(outs) {
 				var out = {};
 				_.each(join,function(k,i){
+                    if(!outs[i]) return; // outs[i] has nothing to contribute
 					_.each(_.keys(outs[i]), function(x) {
-						if(outs[i]) out[x] = outs[i][x];
+						out[x] = outs[i][x];
 					});
 				});
 				return out;
