@@ -230,8 +230,9 @@ jlambda.addPrefunctionator(
 					}else{
 						
 						var overallOUTP = [];
+						var _its = _.isArray(bCtx.outp) ? bCtx.outp : [ bCtx.outp ]; // wrap output of httpFN into a one item array, unless it is an array...
 						var items =
-							_.map(bCtx.outp, function(item, i) {
+							_.map(_its, function(item, i) {
 								return {i: i, it: item};
 							}) ;
 
