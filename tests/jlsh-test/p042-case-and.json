@@ -1,0 +1,40 @@
+{"payload":
+	[
+	    {"name": "John", "age": 33, "level": "A" },
+	     {"name": "Jake", "age": 32, "level": "A" },
+	     {"name": "Joe", "age": 45, "level": "C"},
+	     {"name": "Jeff", "age": 24, "level":"Z"},
+	     {"name": "Jane", "age": 54, "level": "Q"},
+	     {"name": "Julie", "age": 23, "level":"B"},
+	     {"name": "Jabba", "age": 542, "level":"X"},
+	     {"name": "Justin", "age":39, "level":"Z"}
+	  ],
+      
+      
+    "lambda": {"map":
+        {"case":
+            [ {"when": {"and":[
+                              {"f":">=n", "from":"age", "n":30},
+                              {"f":"==s", "from":"name", "s":"Justin"}]},
+                "then": {"f":"id", "from":"level"}},
+                
+              {"when": {"f":"regexp", "match":"Z", "from":"level"}, "then":{"f":"id", "from":"name"}}],
+         "else":{"f":"id","from":"age"},
+         "field":"TT"}},
+     
+     
+     "expect":
+     [
+	    {"name": "John", "age": 33, "level": "A", "TT":33 },
+	     {"name": "Jake", "age": 32, "level": "A", "TT":32 },
+	     {"name": "Joe", "age": 45, "level": "C", "TT": 45},
+	     {"name": "Jeff", "age": 24, "level":"Z", "TT":"Jeff"},
+	     {"name": "Jane", "age": 54, "level": "Q", "TT":54},
+	     {"name": "Julie", "age": 23, "level":"B", "TT":23},
+	     {"name": "Jabba", "age": 542, "level":"X", "TT": 542},
+	     {"name": "Justin", "age":39, "level":"Z", "TT":"Z"}
+	  ]
+       
+         
+         
+}

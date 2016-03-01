@@ -1,0 +1,26 @@
+{"payload":
+	[
+	    {"name": "John", "age": 33, "level": "A" },
+	     {"name": "Jake", "age": 32, "level": "A" },
+	     {"name": "Joe", "age": 45, "level": "C"},
+	     {"name": "Jeff", "age": 34, "level":"Z"},
+	     {"name": "Jane", "age": 54, "level": "Q"},
+	     {"name": "Julie", "age": 23, "level":"B"},
+	     {"name": "Jabba", "age": 542, "level":"X"},
+	     {"name": "Justin", "age":29, "level":"Z"}
+	  ],
+      
+      
+    "lambda": {"map":
+        {"case":
+            [ {"when": {"f":">=n", "from":"age", "n":30}, "then": {"f":"id", "from":"level"}},
+              {"when": {"f":"regexp", "match":"Z", "from":"level"}, "then":{"f":"id", "from":"name"}}],
+         "else":{"f":"id","from":"age"}}},
+         
+         
+   "expect": [
+        "A","A","C","Z","Q",
+        23,"X","Justin"
+    ]
+         
+}
