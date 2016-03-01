@@ -34,6 +34,39 @@ function parsePayload(payloadJson, wrap) {
 	return payload;
 }
 
+var COOKIE_JAR_INDEX = {};
+
+if(argv.cookie) {
+
+    var cookieTag = argv.cookie;
+    jlsrv.get("/add-tmp-cookie", function(req, res) {
+        var q = req.query;
+        var key = q.z;
+        var expiration = q.seconds || 5;
+        var expirationTS = (new Date()).getTime() + expiration*1000;
+        var done = {};
+        if(key && key.length>16) {
+            var cookies = _.clone(req.cookies);
+            if(cookies[cookieTag]) {
+                var qk = {}; qk[cookieTag] = cookies[cookieTag];
+                COOKIE_JAR_INDEX[ key ] = { expiration: expirationTS, cookies: qk};
+                done.success=true;
+                done.expiration = expirationTS;
+                done.expirationISO = (new Date(expirationTS)).toISOString();
+            }else{
+                delete COOKIE_JAR_INDEX[key];
+                done.success = true;
+                done.removed = true;
+            }
+        }else{
+            done.success = false;
+            done.message = "Key is too short";
+        }
+        res.set('Content-type', 'application/json');
+        res.status(200).send(JSON.stringify(done, null, 1));  
+    });
+}
+
 jlsrv.get("/jlambda", function(req,res) {
 	var q = req.query;
 	var cookies = _.clone(req.cookies);
@@ -44,6 +77,29 @@ jlsrv.get("/jlambda", function(req,res) {
 	var exec        = q.exec || q.x;
 	var wrap        = q.wrap || q.w;
 	var format      = q.format || q.f || 'json';
+    var zParam      = q.z;
+    
+    
+    if(zParam) {
+        var ckj = COOKIE_JAR_INDEX[zParam];
+        var now = (new Date()).getTime();
+        if(ckj) {
+            if(ckj.expiration > now) {
+                cookies = _.clone(ckj.cookies);
+            }
+        }
+        
+        var expired = _.reduce(COOKIE_JAR_INDEX, function(list, ckj, key) {
+            if(ckj.expiration < now) {
+                list.push(key);
+            }
+            return list;
+        });
+        if(expired && expired.length>0) {
+            console.log("Deleting coo-keys: " + expired.join(", "));
+            _.each(expired, function(key) { delete COOKIE_JAR_INDEX[key];});
+        }
+    }
 
 	var payload = null, lambda = null;
 	if(format == 'json') {
