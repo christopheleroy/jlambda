@@ -5,7 +5,7 @@
   {
   	"define": {
 	     "/main-terms": 
-        { "with": 0, "chain": [ {"pluck": "lfs"}, {"map":{"pluck":{"lf":"lf"}} ]}
+        { "with": 0, "chain": [ {"pluck": "lfs"}, {"map":{"pluck":{"lf":"lf"}}}] }
      },
      
      "then":
@@ -14,9 +14,10 @@
        {"chain":[
            {"exec":"/main-terms"},
            [
-             {"grep":{"f":"regexp", "match":"machine", "field":"lf"}},
-             {"grep":{"f":"regexp", "match":"medical"}}
-           ]
+             {"grep":{"f":"regexp", "match":"machine", "from":"lf"}},
+             {"grep":{"f":"regexp", "match":"medical", "from":"lf"}}
+           ],
+           {"map":{"pluck":"lf"}}
        ]}
      }
   },

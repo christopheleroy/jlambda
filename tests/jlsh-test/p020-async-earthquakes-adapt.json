@@ -33,18 +33,49 @@
   },
 
   "expect": 
-  [
-    {"code":"20003k7a","id":"us20003k7a","mag":8.3,"place":"46km W of Illapel, Chile","magType":"mww","tsunami":1,
-     "coord":[-71.6543,-31.5695,25],
-     "nearby":"http://earthquake.usgs.gov/realtime/product/nearby-cities/us20003k7a/us/1442450728040/nearby-cities.json"},
-
-    {"code":"20003k7a","id":"us20003k7a","mag":8.3,"place":"46km W of Illapel, Chile","magType":"mww","tsunami":1,
-    "coord":[-71.6543,-31.5695,25],
-    "nearby":"http://earthquake.usgs.gov/realtime/product/nearby-cities/pt15259054/us/1442444977098/nearby-cities.json"},
-
-    {"code":"20003k7a","id":"us20003k7a","mag":8.3,"place":"46km W of Illapel, Chile","magType":"mww","tsunami":1,
-      "coord":[-71.6543,-31.5695,25],
-      "nearby":"http://earthquake.usgs.gov/realtime/product/nearby-cities/at00nuskyv/us/1442444527932/nearby-cities.json"}
-  ]
+ [
+  {
+    "code": "20003k7a",
+    "id": "us20003k7a",
+    "mag": 8.3,
+    "place": "48km W of Illapel, Chile",
+    "magType": "mww",
+    "tsunami": 1,
+    "coord": [
+      -71.6744,
+      -31.5729,
+      22.44
+    ],
+    "nearby": "http://earthquake.usgs.gov/archive/product/nearby-cities/us20003k7a/us/1449614192040/nearby-cities.json"
+  },
+  {
+    "code": "20003k7a",
+    "id": "us20003k7a",
+    "mag": 8.3,
+    "place": "48km W of Illapel, Chile",
+    "magType": "mww",
+    "tsunami": 1,
+    "coord": [
+      -71.6744,
+      -31.5729,
+      22.44
+    ],
+    "nearby": "http://earthquake.usgs.gov/archive/product/nearby-cities/pt15259054/us/1442444977098/nearby-cities.json"
+  },
+  {
+    "code": "20003k7a",
+    "id": "us20003k7a",
+    "mag": 8.3,
+    "place": "48km W of Illapel, Chile",
+    "magType": "mww",
+    "tsunami": 1,
+    "coord": [
+      -71.6744,
+      -31.5729,
+      22.44
+    ],
+    "nearby": "http://earthquake.usgs.gov/archive/product/nearby-cities/at00nuskyv/us/1442444527932/nearby-cities.json"
+  }
+]
   
 }

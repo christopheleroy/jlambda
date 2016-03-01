@@ -39,24 +39,25 @@
 
   "expect": 
   [
+ 
   {
     "in": {
       "code": "20003k7a",
       "id": "us20003k7a",
       "mag": 8.3,
-      "place": "46km W of Illapel, Chile",
+      "place": "48km W of Illapel, Chile",
       "magType": "mww",
       "tsunami": 1,
       "coord": [
-        -71.6543,
-        -31.5695,
-        25
+        -71.6744,
+        -31.5729,
+        22.44
       ],
-      "nearby-url": "http://earthquake.usgs.gov/realtime/product/nearby-cities/us20003k7a/us/1442450728040/nearby-cities.json"
+      "nearby-url": "http://earthquake.usgs.gov/archive/product/nearby-cities/us20003k7a/us/1449614192040/nearby-cities.json"
     },
     "out": [
       {
-        "distance": 46,
+        "distance": 48,
         "direction": "W",
         "name": "Illapel, Chile",
         "longitude": -71.16528,
@@ -64,7 +65,7 @@
         "population": 22816
       },
       {
-        "distance": 68,
+        "distance": 70,
         "direction": "WNW",
         "name": "Salamanca, Chile",
         "longitude": -70.97222,
@@ -72,7 +73,7 @@
         "population": 13265
       },
       {
-        "distance": 105,
+        "distance": 106,
         "direction": "NNW",
         "name": "La Ligua, Chile",
         "longitude": -71.23106,
@@ -80,7 +81,7 @@
         "population": 24857
       },
       {
-        "distance": 116,
+        "distance": 117,
         "direction": "SSW",
         "name": "Ovalle, Chile",
         "longitude": -71.20028,
@@ -88,7 +89,7 @@
         "population": 77138
       },
       {
-        "distance": 229,
+        "distance": 230,
         "direction": "NNW",
         "name": "Santiago, Chile",
         "longitude": -70.64827,
@@ -102,15 +103,15 @@
       "code": "20003k7a",
       "id": "us20003k7a",
       "mag": 8.3,
-      "place": "46km W of Illapel, Chile",
+      "place": "48km W of Illapel, Chile",
       "magType": "mww",
       "tsunami": 1,
       "coord": [
-        -71.6543,
-        -31.5695,
-        25
+        -71.6744,
+        -31.5729,
+        22.44
       ],
-      "nearby-url": "http://earthquake.usgs.gov/realtime/product/nearby-cities/pt15259054/us/1442444977098/nearby-cities.json"
+      "nearby-url": "http://earthquake.usgs.gov/archive/product/nearby-cities/pt15259054/us/1442444977098/nearby-cities.json"
     },
     "out": [
       {
@@ -160,15 +161,15 @@
       "code": "20003k7a",
       "id": "us20003k7a",
       "mag": 8.3,
-      "place": "46km W of Illapel, Chile",
+      "place": "48km W of Illapel, Chile",
       "magType": "mww",
       "tsunami": 1,
       "coord": [
-        -71.6543,
-        -31.5695,
-        25
+        -71.6744,
+        -31.5729,
+        22.44
       ],
-      "nearby-url": "http://earthquake.usgs.gov/realtime/product/nearby-cities/at00nuskyv/us/1442444527932/nearby-cities.json"
+      "nearby-url": "http://earthquake.usgs.gov/archive/product/nearby-cities/at00nuskyv/us/1442444527932/nearby-cities.json"
     },
     "out": [
       {
@@ -213,5 +214,6 @@
       }
     ]
   }
+  
  ]
 }
