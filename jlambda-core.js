@@ -1075,6 +1075,50 @@ exports.unfunctionatedPicker = makePicker;
 
 function miniSpecialOpsBase(obj,ctx) {
     
+    
+    if(obj.or || obj.and || obj.not) {
+        if(obj.f || (obj.or && obj.and) ||
+            (obj.or && obj.not) ||
+            (obj.and && obj.not) ) {
+                return nullForFailure(ctx, "for or, and, not : these cannot be combined at such level: " + JSON.stringify(obj));
+            }
+       if(obj.not) {
+           var FF = wrapMiniOperation(obj.not, ctx);
+           if(FF && !ctx.failed) {
+               var FFN = FF.fn;
+               if(FF.reductive) return nullForFailure(ctx, "for not, the function cannot be reductive: " + JSON.stringify(obj.not));
+               var fn = function(x) { return ! FFN(x); }
+               return {fn:fn};
+           }
+           return FF;
+       }else if(obj.or||obj.and) {
+           var arr = obj.or ? obj.or : obj.and;
+           if(!_.isArray(arr)) {
+               return nullForFailure(ctx, "for and or or, an array of expressions is expected: " +JSON.stringify(obj));
+           }
+           var arrFN = _.map(arr, function(ari) { return wrapMiniOperation(ari,ctx); });
+           if(ctx.failed) return null;
+           var isOR = !!obj.or;
+           var isAND = !isOR;
+           var fn = function(x) {
+               return _.reduce(arrFN, function(bool, fni) {debugger;
+                   if((isOR && bool) || (isAND && !bool)) return bool;
+                   return !!fni.fn(x)
+               },isAND);
+           };
+           return {fn:fn};
+       }
+           
+    }
+    if(obj.f == 'missing?') { // this operation would work only with appropriate 'from' definition in the wrapper
+        return {fn: function(x) { return _.isNull(x) || _.isUndefined(x); } };
+    }
+    
+    if(obj.f == '==') { // this operation would work only with appropriate 'from' definition in the wrapper
+        var onFail = !! obj.onFail; // is test 'successful' (=true) when the input doesn't have enough arguments for the comparison...
+        return {fn: function(x) { debugger; return _.isArray(x) && x.length>1 ? (x[0] == x[1]) : onFail;} };
+    }
+    
  	if(obj.f) {
 		var baseF = obj.f == 'lower' ? function(x) { return x.toLowerCase() } :
 			obj.f == 'upper' ? function(x) { return x.toUpperCase();} :
@@ -1117,6 +1161,7 @@ function miniSpecialOpsBase(obj,ctx) {
             if(_.isUndefined(S)) {
                 return nullForFailure(ctx, "for ==s, parameter s must be defined and a string")
             }
+            baseF = function(x) { return x == S; };
         }
 
 		if(obj.f == 'shift') {
@@ -1239,17 +1284,29 @@ function wrapMiniOperation(ops,ctx, valueNotTest) {
     }
     
     var op = miniSpecialOpsBase(ops,ctx);
+    if(!op) return nullForFailure(ctx, "mini-op could not be compiled: " + JSON.stringify(ops,null,1));;
     if(ops.from) {
         var opFrom = ops.from;
         var opFromString = _.isString(opFrom) ? opFrom : null;
         var op0 = op.fn;
+        if(!op0) {
+            throw new Error("cannot work with " + JSON.stringify(ops, null, 1));
+        }
         if(opFromString) {
             op.fn = function(item) {
                 return item?op0(item[opFromString]):null;
             };
-        }else{
+        }else if(_.isArray(opFrom)){
             op.fn = function(item) {
-                return op0(_.pick(item, opFrom));
+                return op0(_.map(opFrom, function(x) { return item[x] }));
+            };
+        }else if(_.isObject(opFrom)) {
+            var opFrom_ops = wrapMiniOperation(opFrom, ctx);
+            if(!opFrom_ops) return nullForFailure(ctx, "mini-op in 'from' could not be compiled: " + JSON.stringify(ops,null,1));;
+            var op0 = op.fn;
+            var op1 = opFrom_ops.fn;
+            op.fn = function(item) {
+                return op0( op1(item) );
             };
         }
     }
