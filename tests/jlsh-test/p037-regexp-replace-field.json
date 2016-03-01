@@ -1,0 +1,81 @@
+{"payload":
+ [
+        {"Name":"John","Age":33,"category":"Group","value":"alpha"},
+        {"Name":"John","Age":33,"category":"Color","value":"white"},
+        {"Name":"Jake","Age":32,"category":"Group","value":"alpha"},
+        {"Name":"Jake","Age":32,"category":"Color","value":"white"},
+        {"Name":"Joe","Age":45,"category":"Group","value":"gamma-c"},
+        {"Name":"Joe","Age":45,"category":"Color","value":"green"},
+        {"Name":"Jeff","Age":34,"category":"Group","value":"zeta"},
+        {"Name":"Jeff","Age":34,"category":"Color","value":"brown"},
+        {"Name":"Justin","Age":29,"category":"Group","value":"zeta"},
+        {"Name":"Justin","Age":29,"category":"Color","value":"brown"},
+        {"Name":"Jane","Age":54,"category":"Group","value":"colon"},
+        {"Name":"Julie","Age":23,"category":"Group","value":"beta"},
+        {"Name":"Jabba","Age":542,"category":"Group","value":"Xi"}
+    ],
+    
+    
+  "lambda": {"first": {"f":"regexp", "match":"a","field":"Name", "replace":"X", "mod":"g"},
+             "then":{"pluck":{"n":"Name","a":"Age"}}},
+  
+  
+  "expect":
+  [
+      
+  {
+    "n": "John",
+    "a": 33
+  },
+  {
+    "n": "John",
+    "a": 33
+  },
+  {
+    "n": "JXke",
+    "a": 32
+  },
+  {
+    "n": "JXke",
+    "a": 32
+  },
+  {
+    "n": "Joe",
+    "a": 45
+  },
+  {
+    "n": "Joe",
+    "a": 45
+  },
+  {
+    "n": "Jeff",
+    "a": 34
+  },
+  {
+    "n": "Jeff",
+    "a": 34
+  },
+  {
+    "n": "Justin",
+    "a": 29
+  },
+  {
+    "n": "Justin",
+    "a": 29
+  },
+  {
+    "n": "JXne",
+    "a": 54
+  },
+  {
+    "n": "Julie",
+    "a": 23
+  },
+  {
+    "n": "JXbbX",
+    "a": 542
+  }
+  ]
+}
+  
+ 
