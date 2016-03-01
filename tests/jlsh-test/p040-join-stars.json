@@ -1,0 +1,143 @@
+{
+    "payload": [
+  
+  [
+  {"Name":"John","Age":33,"Group":"alpha","Color":"white"},
+  {"Name":"Jake","Age":32,"Group":"alpha","Color":"white"},
+  {"Name":"Joe","Age":45,"Group":"gamma-c","Color":"green"},
+  {"Name":"Jeff","Age":34,"Group":"zeta","Color":"brown"},
+  {"Name":"Justin","Age":29,"Group":"zeta","Color":"brown"},
+  {"Name":"Jane","Age":54,"Group":"colon"},
+  {"Name":"Julie","Age":23,"Group":"beta"},
+  {"Name":"Jabba","Age":542,"Group":"Xi"} ],
+  
+  [
+    {"Name":"John","kilo": 80, "debt": 1000, "married": 3, "IQ": 107 },
+    {"Name":"Jake","kilo": 76, "debt": 900, "married": 0, "IQ":99 },
+    {"Name":"Joe", "kilo": 79, "debt": -200, "married": 1, "IQ": 105},
+    {"Name":"Jeff","kilo":  99, "debt":0, "married": 2, "IQ": 120},
+    {"Name":"Justin","kilo": 69, "debt":34, "married":1, "IQ": 100},
+    {"Name":"Jane","kilo":55, "debt":412, "married":1, "IQ": 111},
+    {"Name":"Julie","kilo":61, "debt":21, "married":0, "IQ": 106},
+    {"Name":"Jabba","kilo":671, "debt":-100124, "married":27, "IQ":214 }]
+
+  ],
+  
+  "lambda": 
+  {"join": ["a", "b"], "on": [{"pluck":"Name"}, {"pluck":"Name"}],
+   "select": {"a": { "*": ["Name", "Age", "Group" ], "xx_*": ["Group"], "*_zz": "*" },
+              "b": {"tt_*": "e", "qq_*": ["Name", "IQ"] } } },
+
+  "expect":
+  [
+  {
+    "Name": "John","Age": 33,"Group": "alpha",
+    "xx_Group": "alpha",
+    "Name_zz": "John",  "Age_zz": 33, "Group_zz": "alpha", "Color_zz": "white",
+    "tt_Name": "John", "tt_debt": 1000,"tt_married": 3,
+    "qq_Name": "John", "qq_IQ": 107
+  },
+  {
+    "Name": "Jake",
+    "Age": 32,
+    "Group": "alpha",
+    "xx_Group": "alpha",
+    "Name_zz": "Jake",
+    "Age_zz": 32,
+    "Group_zz": "alpha",
+    "Color_zz": "white",
+    "tt_Name": "Jake",
+    "tt_debt": 900,
+    "tt_married": 0,
+    "qq_Name": "Jake",
+    "qq_IQ": 99
+  },
+  {
+    "Name": "Joe",
+    "Age": 45,
+    "Group": "gamma-c",
+    "xx_Group": "gamma-c",
+    "Name_zz": "Joe",
+    "Age_zz": 45,
+    "Group_zz": "gamma-c",
+    "Color_zz": "green",
+    "tt_Name": "Joe",
+    "tt_debt": -200,
+    "tt_married": 1,
+    "qq_Name": "Joe",
+    "qq_IQ": 105
+  },
+  {
+    "Name": "Jeff",
+    "Age": 34,
+    "Group": "zeta",
+    "xx_Group": "zeta",
+    "Name_zz": "Jeff",
+    "Age_zz": 34,
+    "Group_zz": "zeta",
+    "Color_zz": "brown",
+    "tt_Name": "Jeff",
+    "tt_debt": 0,
+    "tt_married": 2,
+    "qq_Name": "Jeff",
+    "qq_IQ": 120
+  },
+  {
+    "Name": "Justin",
+    "Age": 29,
+    "Group": "zeta",
+    "xx_Group": "zeta",
+    "Name_zz": "Justin",
+    "Age_zz": 29,
+    "Group_zz": "zeta",
+    "Color_zz": "brown",
+    "tt_Name": "Justin",
+    "tt_debt": 34,
+    "tt_married": 1,
+    "qq_Name": "Justin",
+    "qq_IQ": 100
+  },
+  {
+    "Name": "Jane",
+    "Age": 54,
+    "Group": "colon",
+    "xx_Group": "colon",
+    "Name_zz": "Jane",
+    "Age_zz": 54,
+    "Group_zz": "colon",
+    "tt_Name": "Jane",
+    "tt_debt": 412,
+    "tt_married": 1,
+    "qq_Name": "Jane",
+    "qq_IQ": 111
+  },
+  {
+    "Name": "Julie",
+    "Age": 23,
+    "Group": "beta",
+    "xx_Group": "beta",
+    "Name_zz": "Julie",
+    "Age_zz": 23,
+    "Group_zz": "beta",
+    "tt_Name": "Julie",
+    "tt_debt": 21,
+    "tt_married": 0,
+    "qq_Name": "Julie",
+    "qq_IQ": 106
+  },
+  {
+    "Name": "Jabba",
+    "Age": 542,
+    "Group": "Xi",
+    "xx_Group": "Xi",
+    "Name_zz": "Jabba",
+    "Age_zz": 542,
+    "Group_zz": "Xi",
+    "tt_Name": "Jabba",
+    "tt_debt": -100124,
+    "tt_married": 27,
+    "qq_Name": "Jabba",
+    "qq_IQ": 214
+  }
+  ]
+}
