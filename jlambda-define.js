@@ -49,12 +49,43 @@ jlambda.addPrefunctionator(
 				}
 				
 				var isAsync = (qname.match("@"));
+                var thenFN = null;
+                
+                if(obj.then) {
+                    thenFN = jlambda.functionator(ctx, obj.then);
+                    if(thenFN && !isAsync) {
+                        ctx.failed = true;
+                        ctx.failures.push("exec/then: could not compile then-expression");
+                    }
+                    if(ctx.failed) return null;
+                }
 				
 				var FN = function(aCtx) {
 					var lFN = __global_definitions__[ qname ];
 					if(lFN) {
 						aCtx = withFN(aCtx);
 						if(aCtx.failed) return aCtx;
+                        // pass the "done" to the next thing if there is such a next thing
+                        // if(isAsync && thenFN) {
+                        //     var doneFNlast = aCtx.done;
+                        //     var doneFNfirst = function() {
+                        //         var bCtx = jlambda.context(this.out, null, doneFNlast);
+                        //         bCtx.cookies = this.cookies;
+                        //         return thenFN(bCtx);
+                        //     };
+                        //     doneFNfirst.bind(aCtx);
+                        //     return lFN(aCtx);
+                        // }else if(thenFN && !isAsync) {
+                        //     var cCtx = lFN(aCtx);
+                        //     if(cCtx.failed) {
+                        //         return cCtx;
+                        //     }else{
+                        //         var bCtx = jlambda.context(cCtx.outp, aCtx.done);
+                        //         bCtx.cookies = aCtx.cookies;
+                                
+                                
+                        //     }
+                        // }
 						return lFN(aCtx);
 					}else{
 						aCtx.failed = true;
