@@ -1072,6 +1072,82 @@ var makePicker = function(picks, ctx) {
 exports.unfunctionatedPicker = makePicker;
 
 
+function makeSampler(obj,ctx) {
+    // this operation will support the 'with:' wizardry
+	var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
+    if(ctx.failed) return null;
+    
+    var sample = obj.sample || "first";
+    var limit  = obj.limit || "1%";
+    
+    var limitNumber = _.isNumber(limit) ? limit : 0;
+    var limitFraction = 0;
+    var m = (_.isString(limit) ? limit.match(/^(\d+)\s*\%$/) : null);
+    if(m) {
+        limitFraction =parseFloat(m[1])/100;
+    }
+    if(!sample.match(/first|random|last/)) {
+        return nullForFailure(ctx, "sample: only first, last, or random are supported");
+    }
+    
+    if(!(limitNumber || limitFraction)) {
+        return nullForFailure(ctx, "sample: limit must be a number or a percentage (100 or 2%)");
+    }
+    
+    var mFN = 
+        sample == 'first' || sample == 'last' ? 
+            function(aCtx) {
+                aCtx = withFN(aCtx);
+                if(aCtx.mode == 'stream') {
+                    var sz = aCtx.inp.length;
+                    if(!sz) {
+                        aCtx.outp = aCtx.inp;
+                        return aCtx;
+                    }
+                    var lim = Math.ceil(limitNumber ? limitNumber: (sz*limitFraction));
+                    aCtx.outp = lim>sz ? _.clone(aCtx.inp) : 
+                        ((sample == 'first') ? _.take(aCtx.inp, lim) : _.takeRight(aCtx.inp, lim));
+                }else{
+                    aCtx.outp = nullForFailure(aCtx, "sample: only stream mode is supported");
+                }
+                return aCtx;
+            } :
+            function(aCtx) {
+                aCtx = withFN(aCtx);
+                if(aCtx.mode == 'stream') {
+                    var sz = aCtx.inp.length;
+                    if(!sz) {
+                        aCtx.outp = aCtx.inp;
+                        return aCtx;
+                    }
+                    var lim = Math.ceil(limitNumber ? limitNumber: (sz*limitFraction));
+                    if(lim>sz) lim = sz;
+                    var used =[];
+                    var pos = [];
+                    var kill = 0;
+                    var killMax = 10+5*sz;
+                    while(pos.length<lim && kill <killMax) {
+                        var n = _.random(1,sz)-1;
+                        if(!used[n]) {
+                            pos.push(n);
+                            used[n]=true;
+                            kill=0;
+                        }else{
+                            kill++;
+                        }
+                    }
+                    aCtx.outp = _.map(pos, function(i) { return aCtx.inp[i];});
+                }else{
+                    aCtx.outp = nullForFailure(aCtx, "sample: only stream mode is supported");
+                }
+                return aCtx;
+            };
+            
+            
+        mFN.isFunctionated = true;    
+
+    return mFN;
+}
 
 function miniSpecialOpsBase(obj,ctx) {
     
@@ -1101,7 +1177,7 @@ function miniSpecialOpsBase(obj,ctx) {
            var isOR = !!obj.or;
            var isAND = !isOR;
            var fn = function(x) {
-               return _.reduce(arrFN, function(bool, fni) {debugger;
+               return _.reduce(arrFN, function(bool, fni) {
                    if((isOR && bool) || (isAND && !bool)) return bool;
                    return !!fni.fn(x)
                },isAND);
@@ -1116,7 +1192,7 @@ function miniSpecialOpsBase(obj,ctx) {
     
     if(obj.f == '==') { // this operation would work only with appropriate 'from' definition in the wrapper
         var onFail = !! obj.onFail; // is test 'successful' (=true) when the input doesn't have enough arguments for the comparison...
-        return {fn: function(x) { debugger; return _.isArray(x) && x.length>1 ? (x[0] == x[1]) : onFail;} };
+        return {fn: function(x) { return _.isArray(x) && x.length>1 ? (x[0] == x[1]) : onFail;} };
     }
     
  	if(obj.f) {
@@ -1283,6 +1359,12 @@ function wrapMiniOperation(ops,ctx, valueNotTest) {
         return {fn: function() { return strConst;}, reductive:false};
     }
     
+    
+    if((_.isString(ops) || _.isNumber(ops)) && !valueNotTest) {
+        var _const = ops; 
+        return {fn: function(x) { return x == _const}, reductive:false};
+    }
+    
     var op = miniSpecialOpsBase(ops,ctx);
     if(!op) return nullForFailure(ctx, "mini-op could not be compiled: " + JSON.stringify(ops,null,1));;
     if(ops.from) {
@@ -1312,6 +1394,9 @@ function wrapMiniOperation(ops,ctx, valueNotTest) {
     }
     return op;
 }
+
+
+
 
 var makeCaseWhenElse = function(obj, ctx) {
     var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
@@ -1349,13 +1434,21 @@ var makeCaseWhenElse = function(obj, ctx) {
         return nullForFailure(ctx, "case: field must be a string");
     }
     
+    var testOn = obj.testOn
+    if(testOn && !_.isString(testOn)) {
+        return nullForFailure(ctx, "case: testOn is a convenient shortcut, but we support only a single string for {case:.., testOn:...}");
+    }
+    
+    
+    
     var cFN = function(item) {
         
+        var testItem = (testOn? (item? item[testOn]: item):item);// get the 'testOn' field if required (complexity of ? : is for safety)
         var hit = false;
         var qx = _.reduce(cases, function(val, _case) {
             if(hit) return val;
             var when = _case[0];
-            if(when.fn(item)) {
+            if(when.fn(testItem)) {
                 hit =true;
                 val = _case[1].fn(item);
             }
@@ -2052,7 +2145,9 @@ var functionator = function(obj,ctx) {
 			FN = makeDebugger(obj.debug, ctx);
 		}else if(!_.isUndefined(obj['##'])) {
 			FN = makeLiteraller(obj,ctx);
-		}
+		}else if(obj.sample) {
+            FN = makeSampler(obj, ctx);
+        }
 	} 
 	if(FN != null) { 
 		FN._code_ = _.clone(obj); 
