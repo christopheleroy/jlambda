@@ -72,12 +72,17 @@ jlsrv.get("/jlambda", function(req,res) {
 	var cookies = _.clone(req.cookies);
 
 	var payloadJson = q.payload || q.p;
-	var lambdaJson  = q.lambda || q.l;
+	var lambdaJson  = q.lambda || q.l || "";
 	var inJson      = q.jp;
 	var exec        = q.exec || q.x;
 	var wrap        = q.wrap || q.w;
 	var format      = q.format || q.f || 'json';
-    var zParam      = q.z;
+    	var zParam      = q.z;
+	var noDecode    = q.nd;
+
+	if(!noDecode) {
+		lambdaJson = lambdaJson.replace(/%3A/g,":").replace(/%2F/g, "/").replace(/%22/g,'"');
+	}
     
     
     if(zParam) {
@@ -111,6 +116,8 @@ jlsrv.get("/jlambda", function(req,res) {
 		try {
 			lambda = JSON.parse(lambdaJson);
 		}catch(e) {
+			console.log("Unable to parse lambdaJson");
+			console.log(lambdaJson);
 			lambda = null;
 		}
 		if(_.isNull(payload)  || _.isNull(lambda) ) {
