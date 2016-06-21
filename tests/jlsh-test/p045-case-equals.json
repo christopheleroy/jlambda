@@ -11,11 +11,11 @@
 	  ],
       
       
-    "lambda": {"map":
+    "lambda": 
         {"case":
             [ {"when": {"f":"==", "from":["age","page"]}, "then": {"f":"id", "from":"level"} } ],
          "else":{"f":"id","from":"age"},
-         "field":"TT"}},
+         "field":"TT"},
          
          
          

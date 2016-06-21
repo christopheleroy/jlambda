@@ -14,15 +14,15 @@
     "lambda":
     
     [
-       {"map":
+       
         {"case": [
             {"when":{"f":"==s", "s":"Z","from":"level"}, "then":{"f":"id", "from":"level"}}
-        ], "else": {"f":"id", "from":"age"}}},
+        ], "else": {"f":"id", "from":"age"}},
         
-       {"map":
+       
         {"case": [
             {"when": {"f":"==s", "s":"Z","from":{"f":"upper","from":"level"}}, "then":{"f":"lower", "from":"level"}}
-        ],   "else": {"f":"id", "from":"age"}}} 
+        ],   "else": {"f":"id", "from":"age"}}
     ],
         
             

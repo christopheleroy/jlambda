@@ -11,7 +11,7 @@
 	  ],
       
       
-    "lambda": {"map":
+    "lambda": 
         {"case":
             [ {"when": {"and":[
                               {"f":">=n", "from":"age", "n":30},
@@ -20,7 +20,7 @@
                 
               {"when": {"f":"regexp", "match":"Z", "from":"level"}, "then":{"f":"id", "from":"name"}}],
          "else":{"f":"id","from":"age"},
-         "field":"TT"}},
+         "field":"TT"},
      
      
      "expect":

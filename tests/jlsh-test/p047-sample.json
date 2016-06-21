@@ -1,0 +1,48 @@
+{"payload":
+    ["abc", "cde", "efg", "ghi", "ijk", "lmn", "nop", "pqr","stu", "uvw", "wxy", "yzA"],
+    
+   "lambda": 
+     [
+         {"first": {"sample":"random", "limit":"50%"}, "then":{"f":"length"}},
+         
+         {"sample":"first", "limit":3 },
+         {"sample":"last", "limit":"10%"},
+         
+         {"first":{"debug":{"sample":"random", "limit":2}}, "then":{"case":[{"when":{"f":"=="},"then":{"f":"id"}}],"else":"ok"}},
+         {"first":{"debug":{"sample":"random", "limit":2}}, "then":{"case":[{"when":{"not":{"f":"=="}},"then":"ok"}],"else":{"f":"id"}}},
+         {"first":{"debug":{"sample":"random", "limit":2}}, "then":{"case":[{"when":{"f":"=="},"then":{"f":"id"}}],"else":"ok"}},
+         {"first":{"debug":{"sample":"random", "limit":2}}, "then":{"case":[{"when":{"not":{"f":"=="}},"then":"ok"}],"else":{"f":"id"}}},
+         {"first":{"debug":{"sample":"random", "limit":2}}, "then":{"case":[{"when":{"f":"=="},"then":{"f":"id"}}],"else":"ok"}},
+         {"first":{"debug":{"sample":"random", "limit":2}}, "then":{"case":[{"when":{"not":{"f":"=="}},"then":"ok"}],"else":{"f":"id"}}},
+         {"first":{"debug":{"sample":"random", "limit":2}}, "then":{"case":[{"when":{"f":"=="},"then":{"f":"id"}}],"else":"ok"}},
+         {"first":{"debug":{"sample":"random", "limit":2}}, "then":{"case":[{"when":{"not":{"f":"=="}},"then":"ok"}],"else":{"f":"id"}}},
+         {"first":{"debug":{"sample":"random", "limit":2}}, "then":{"case":[{"when":{"f":"=="},"then":{"f":"id"}}],"else":"ok"}},
+         {"first":{"debug":{"sample":"random", "limit":2}}, "then":{"case":[{"when":{"not":{"f":"=="}},"then":"ok"}],"else":{"f":"id"}}},
+         {"first":{"debug":{"sample":"random", "limit":2}}, "then":{"case":[{"when":{"f":"=="},"then":{"f":"id"}}],"else":"ok"}},
+         {"first":{"debug":{"sample":"random", "limit":2}}, "then":{"case":[{"when":{"not":{"f":"=="}},"then":"ok"}],"else":{"f":"id"}}},
+         {"first":{"debug":{"sample":"random", "limit":2}}, "then":{"case":[{"when":{"f":"=="},"then":{"f":"id"}}],"else":"ok"}},
+         {"first":{"debug":{"sample":"random", "limit":2}}, "then":{"case":[{"when":{"not":{"f":"=="}},"then":"ok"}],"else":{"f":"id"}}},
+         {"first":{"debug":{"sample":"random", "limit":2}}, "then":{"case":[{"when":{"f":"=="},"then":{"f":"id"}}],"else":"ok"}},
+         {"first":{"debug":{"sample":"random", "limit":2}}, "then":{"case":[{"when":{"not":{"f":"=="}},"then":"ok"}],"else":{"f":"id"}}},
+         {"first":{"debug":{"sample":"random", "limit":2}}, "then":{"case":[{"when":{"f":"=="},"then":{"f":"id"}}],"else":"ok"}},
+         {"first":{"debug":{"sample":"random", "limit":2}}, "then":{"case":[{"when":{"not":{"f":"=="}},"then":"ok"}],"else":{"f":"id"}}},
+         {"first":{"debug":{"sample":"random", "limit":2}}, "then":{"case":[{"when":{"f":"=="},"then":{"f":"id"}}],"else":"ok"}},
+         {"first":{"debug":{"sample":"random", "limit":2}}, "then":{"case":[{"when":{"not":{"f":"=="}},"then":"ok"}],"else":{"f":"id"}}},
+         {"first":{"debug":{"sample":"random", "limit":2}}, "then":{"case":[{"when":{"f":"=="},"then":{"f":"id"}}],"else":"ok"}},
+         {"first":{"debug":{"sample":"random", "limit":2}}, "then":{"case":[{"when":{"not":{"f":"=="}},"then":"ok"}],"else":{"f":"id"}}},
+         {"first":{"debug":{"sample":"random", "limit":2}}, "then":{"case":[{"when":{"f":"=="},"then":{"f":"id"}}],"else":"ok"}},
+         {"first":{"debug":{"sample":"random", "limit":2}}, "then":{"case":[{"when":{"not":{"f":"=="}},"then":"ok"}],"else":{"f":"id"}}}
+   
+     ],
+     
+    "explain": "Try many many times to get a random sample of 2 and make sure we never get dups...",
+    
+    
+    "expect":
+        [[3,3,3,3,3,3],["abc","cde","efg"],["wxy","yzA"],["ok","ok"],["ok","ok"],["ok","ok"],["ok","ok"],["ok","ok"],["ok","ok"]
+            ,["ok","ok"],["ok","ok"],["ok","ok"],["ok","ok"],["ok","ok"],["ok","ok"],["ok","ok"],["ok","ok"],["ok","ok"],["ok","ok"]
+            ,["ok","ok"],["ok","ok"],["ok","ok"],["ok","ok"],["ok","ok"],["ok","ok"],["ok","ok"],["ok","ok"]]
+    
+     
+    
+}

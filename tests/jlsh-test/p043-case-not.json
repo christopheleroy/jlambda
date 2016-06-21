@@ -11,14 +11,14 @@
 	  ],
       
       
-    "lambda": {"map":
+    "lambda": 
         {"case":
             [ {"when": {"not": {"f":">=n", "from":"age", "n":40} },
                 "then": {"f":"id", "from":"level"}},
                 
               {"when": {"f":"regexp", "match":"Z", "from":"level"}, "then":{"f":"id", "from":"name"}}],
          "else":{"f":"id","from":"age"},
-         "field":"TT"}},
+         "field":"TT"},
      
      
      "expect":
