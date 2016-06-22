@@ -99,7 +99,7 @@ jlsrv.get("/jlambda", function(req,res) {
                 list.push(key);
             }
             return list;
-        });
+        },[]);
         if(expired && expired.length>0) {
             console.log("Deleting coo-keys: " + expired.join(", "));
             _.each(expired, function(key) { delete COOKIE_JAR_INDEX[key];});
