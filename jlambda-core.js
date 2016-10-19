@@ -1240,6 +1240,21 @@ function miniSpecialOpsBase(obj,ctx) {
             baseF = function(x) { return x == S; };
         }
 
+        if(obj.f=='date2iso') {
+        	baseF = function(x) {
+        		if(!(_.isNull(x)||_.isUndefined(x))) {
+        			if(!_.isNumber(x) && x.toString().match(/^-?\d+/)) {
+        				x = parseFloat(x.toString());
+        			}
+        			if(_.isNumber(x)) {
+        				var d = new Date(x);
+        				return d.toJSON();
+        			}
+        		}
+        		return undefined;
+        	}
+        }
+
 		if(obj.f == 'shift') {
 			var mFN = function(item) {
 				if(item.length && item.length>0) {

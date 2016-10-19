@@ -1,0 +1,36 @@
+{"payload":
+
+[
+    {"Name":"John","kilo": 80, "debt": 1000, "married": 3, "IQ": 107 },
+    {"Name":"Jake","kilo": 76, "debt": 900, "married": 0, "IQ":99 },
+    {"Name":"Joe", "kilo": 79, "debt": -200, "married": 1, "IQ": 105},
+    {"Name":"Jeff","kilo":  99, "debt":0, "married": 2, "IQ": 120},
+    {"Name":"Justin","kilo": 69, "debt":34, "married":1, "IQ": 100},
+    {"Name":"Jane","kilo":55, "debt":412, "married":1, "IQ": 111},
+    {"Name":"Julie","kilo":61, "debt":21, "married":0, "IQ": 106},
+    {"Name":"Jabba","kilo":671, "debt":-100124, "married":27, "IQ":214 }
+
+  ],
+
+
+  "lambda": {"apply":{"IQm":{"first":[{"pluck":"married"},{"pluck":"IQ"}],
+                              "then":{"f":"+"}},
+                      "kiloD": {"first":[{"pluck":"kilo"},{"pluck":"debt"}],
+                                "then":{"f":"*"}}
+                     }
+             },
+
+  "expect": 
+  [
+   {"Name":"John","kilo":80,"debt":1000,"married":3,"IQ":107,"IQm":110,"kiloD":80000},
+   {"Name":"Jake","kilo":76,"debt":900,"married":0,"IQ":99,"IQm":99,"kiloD":68400},
+   {"Name":"Joe","kilo":79,"debt":-200,"married":1,"IQ":105,"IQm":106,"kiloD":-15800},
+   {"Name":"Jeff","kilo":99,"debt":0,"married":2,"IQ":120,"IQm":122,"kiloD":0},
+   {"Name":"Justin","kilo":69,"debt":34,"married":1,"IQ":100,"IQm":101,"kiloD":2346},
+   {"Name":"Jane","kilo":55,"debt":412,"married":1,"IQ":111,"IQm":112,"kiloD":22660},
+   {"Name":"Julie","kilo":61,"debt":21,"married":0,"IQ":106,"IQm":106,"kiloD":1281},
+   {"Name":"Jabba","kilo":671,"debt":-100124,"married":27,"IQ":214,"IQm":241,"kiloD":-67183204}
+   ]
+
+
+}
