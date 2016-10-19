@@ -20,6 +20,8 @@
                      }
              },
 
+   "comment": "apply allows to applying a number of calculation to each object of a stream, and add the results as new properties in these objects",
+
   "expect": 
   [
    {"Name":"John","kilo":80,"debt":1000,"married":3,"IQ":107,"IQm":110,"kiloD":80000},
