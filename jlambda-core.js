@@ -764,7 +764,8 @@ var makeTwoStep = function(obj,ctx) {
         if(bCtx.failed) return bCtx;
         var cCtx = context(bCtx.outp);
         cCtx = then(cCtx);
-        return cCtx;
+        aCtx.outp = cCtx.outp;
+        return aCtx;
     };
     
     FN.isFunctionated = true;
