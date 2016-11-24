@@ -13,7 +13,7 @@
 
   "comment": "the 'spread' option of pluck allows a field to be expanded if its value is a list",
 
-  "expect": 
+  "expect":
     [
       {"A":"max","B":"bern","t":1},
       {"A":"max","B":"bern","t":2},
@@ -26,6 +26,7 @@
       {"A":"fox","B":"push","t":300},
       	{"A":"fin","B":"rice","t":"thirty-one"},
       {"A":"ton","B":0},
+      {"A":"empty", "B":"poor"},
 	      {"A":"fax","B":"fern","t":"thirty-two"},
 	      {"A":"fax","B":"fern","t":"thrifty"},
 	      {"A":"fax","B":"fern","t":33},

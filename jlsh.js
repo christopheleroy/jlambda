@@ -117,6 +117,7 @@ function readStdin( next ) {
 }
 
 function readFile(file, next, fail) {
+	fail = fail || failureOnRead;
 	fs.readFile(file, {encoding: 'utf-8'}, function(err, data) {
 		if(err) { fail(err); }
 		else next(data);
@@ -128,6 +129,11 @@ function readyProcessing(lambdaData, jsonData, doTest, pretty) {
 	var dataJson   = JSON.parse(jsonData);
 	var data = {lambda: lambdaJson, payload: dataJson};
 	processIt(data, doTest,pretty);
+}
+
+function failureOnRead(err) {
+	console.error(err);
+	console.error("Failured on reading input file...");
 }
 
 var doTest = !! argv.t;

@@ -224,7 +224,7 @@ function makeExtractorStep(path,defaults) {
 
 
 // how "spreading" will work with pluck ...
-function makeReduceSpreader(spreadKey) {
+function makeReduceSpreader(spreadKey, strictly) {
 	return function(list, item) {
 		if(!item) return list;
 		var sublist = item[spreadKey];
@@ -240,8 +240,8 @@ function makeReduceSpreader(spreadKey) {
 					list.push(instance);
 				});
 			}
-		}else{ // the item doesn't have the 'spreadKey' property, still add it
-			list.push(item);
+		}else{ // the item doesn't have the 'spreadKey' property, still add it (unless 'strictly')
+			if(!strictly) list.push(item);
 		}
 		return list;
 	}
@@ -257,7 +257,7 @@ var makePlucker = function (obj, ctx) {
 
 
 
-
+debugger;
 	var plKey = obj.pluck;
 	var pickList = obj.pick;
 	var spreading = !!obj.spread
@@ -266,7 +266,12 @@ var makePlucker = function (obj, ctx) {
 		ctx.failed = true;
 		return null;
 	}
-	var spreader = spreading ? makeReduceSpreader(obj.spread) : null;
+	if(!_.isUndefined(obj.strict) && ! _.isBoolean(obj.strict)) {
+		ctx.failures.push("spread: strict is optional, but if passed, must be a boolean");
+		ctx.failed = true;
+		return null;
+	}
+	var spreader = spreading ? makeReduceSpreader(obj.spread, !!obj.strict) : null;
 
 	var isPlain = _.isString(plKey);
 
