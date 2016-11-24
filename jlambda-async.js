@@ -1,3 +1,5 @@
+define(function(require,exports,module) {
+
 var async = require("async");
 var request = require("request");
 var _ = require("lodash");
@@ -26,7 +28,7 @@ function addProxy(hostPattern, proxy) {
 
 exports.addAuth = addAuth;
 exports.addProxy = addProxy;
-exports.addReportingTime = function(bool) { 
+exports.addReportingTime = function(bool) {
 	_globReportTime = !! bool;
 }
 
@@ -52,14 +54,14 @@ function injectConfiguration(opts, ctxConfig) {
 			var ck  = request.cookie(ckName+"="+ckValue);
 			jar.setCookie(ck, opts.url);
 			opts.jar = jar;
-			console.warn("added cookie " + ckName);				
+			console.warn("added cookie " + ckName);
 		}else if(auth.user && !_.isUndefined(auth.password)){
-			opts.auth = {username: auth.user, password: auth.password };	
+			opts.auth = {username: auth.user, password: auth.password };
 			console.warn("found authentication for " +url);
 		}else{
 			console.warn("found authentication specs but missing cookie...?");
 		}
-		
+
 	}
 	var proxy = twoStepFinder( (ctxConfig && ctxConfig.proxyArray ? ctxConfig.proxyArray : null), _configuredProxy, finder);
 	if(proxy) {
@@ -118,7 +120,7 @@ function reportingTime(start,end,url,err,httpResponse) {
 	if(_.isNull(end)) {
 		end = (new Date()).getTime();
 	}
-	console.info({url: url, start: start, duration: (end-start), 
+	console.info({url: url, start: start, duration: (end-start),
 					error: (!_.isNull(err)),
 		statusCode: (_.isNull(err) && httpResponse ? null: httpResponse.statusCode)})
 }
@@ -137,12 +139,12 @@ jlambda.addPrefunctionator(
 					obj.async.okCode ? [ obj.async.okCode ] : [200,304];
 
 	    var ajson = _.isUndefined(obj.async.json) ? true : (!!obj.async.json);
-		
+
 		var mode = obj.async.mode || 'straight';
 
 		var adaptor = obj.adapt ? jlambda.functionator(obj.adapt,ctx) : null;
 		var wrap    = obj.wrap;
-		
+
 		var reportTiming = (!!obj.async.timing)||_globReportTime;
 
 
@@ -161,8 +163,8 @@ jlambda.addPrefunctionator(
 			if(_.isString(http)) {
 				var statusCodeOK = obj.async.okCodes ? obj.async.okCodes :
 					obj.async.okCode ? [ obj.async.okCode ] : [200];
-					
-				
+
+
 				var thenFN = _.isUndefined(obj.then) ? null : jlambda.functionator(obj.then, ctx);
 				if(ctx.failed) return null;
 
@@ -172,7 +174,7 @@ jlambda.addPrefunctionator(
 					if(_.isUndefined(aCtx.done)) {
 						debugger;
 					}
-					
+
 					injectConfiguration(opt, aCtx);
 					var start = reportTiming ? (new Date()).getTime(): 0;
 					request(opt, function(err, httpResponse, data) {
@@ -184,7 +186,7 @@ jlambda.addPrefunctionator(
 							aCtx.done();
 						}else{
 							var statusCode = httpResponse.statusCode;
-							
+
 							if(_.contains(statusCodeOK, statusCode)) {
 								data = ajson ? JSON.parse(data) : data;
 								if(wrap && ! _.isArray(data)) data = [ data ];
@@ -206,17 +208,17 @@ jlambda.addPrefunctionator(
 				var httpFN = jlambda.functionator(
 						(obj.map ? {map: http} : http), ctx);
 
-				var mixer = obj.mix == 'in-out' ? 'io' : 
+				var mixer = obj.mix == 'in-out' ? 'io' :
 							obj.mix == 'pair' ? 'pair' : 'none';
 
-				var picker = _.isString(obj.pick) ? ['s', obj.pick] : 
+				var picker = _.isString(obj.pick) ? ['s', obj.pick] :
 					_.isNumber(obj.pick) ? ['n',  obj.pick ] : null;
 
 				if(ctx.failed) return null;
 				var isParallel = !!obj.map || obj.parallel || _.isNumber(obj.limit);
 				var limit = isParallel ? (_.isNumber(obj.limit) ? obj.limit : 1) : 7;
 				var thenFN = _.isUndefined(obj.then) ? null : jlambda.functionator(obj.then, ctx);
-				if(ctx.failed) return null;				
+				if(ctx.failed) return null;
 
 
 				var FN = function(aCtx) {
@@ -228,7 +230,7 @@ jlambda.addPrefunctionator(
 					if(bCtx.failed) {
 						thenFailThis(aCtx, null);
 					}else{
-						
+
 						var overallOUTP = [];
 						var _its = _.isArray(bCtx.outp) ? bCtx.outp : [ bCtx.outp ]; // wrap output of httpFN into a one item array, unless it is an array...
 						var items =
@@ -261,28 +263,28 @@ jlambda.addPrefunctionator(
 							aCtx.failed=true;
 							return thenFailThis(aCtx, items);
 						}
-						
+
 						async.eachLimit(items, limit, function(item,cb) {
 							// item may be a single string, an array (we use the first one), or an object
 							var it = item.picked;
 
-							var opt = _.isObject(it) ? _.clone(it) : 
+							var opt = _.isObject(it) ? _.clone(it) :
 								_.isArray(it) && it.length>0 ? _.clone(it[0]) : {url: it};
-							
+
 							injectConfiguration(opt, aCtx);
 							var start = reportTiming ? (new Date()).getTime() : 0;
 							request(opt, function(err, response, data) {
 								if(start) reportingTime(start,null, opt.url, err,response);
-								if(err) { 
+								if(err) {
 									aCtx.failed = true;
 									aCtx.error_i = item.i;
 									aCtx.error = err;
 									cb(err);
 								}else{
 									if(ajson) {
-										try { 
+										try {
 											data = JSON.parse(data);
-										}catch(e) { 
+										}catch(e) {
 											overallOUTP[item.i]={"straight-outp":data, outp:[], statusCode: response.statusCode, ok: false};
 											return cb();
 										}
@@ -300,7 +302,7 @@ jlambda.addPrefunctionator(
 
 							});
 						}, function(err) {
-							var data = 
+							var data =
 								_.map(overallOUTP, function(z) {
 									return z && z.ok ? z.outp : null;
 								});
@@ -320,3 +322,4 @@ jlambda.addPrefunctionator(
 		return null;
 	});
 
+});

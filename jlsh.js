@@ -1,4 +1,8 @@
-var jlambda = require("./jlambda-core.js");
+
+var requirejs = require("requirejs");
+
+// using __dirname everywhere we use a local module, as requirejs is a little harder to configure than I expected
+var jlambda = requirejs(__dirname + "/jlambda-core.js");
 var fs = require('fs');
 var parseArgs = require("minimist");
 var _ = require("lodash");
@@ -14,10 +18,10 @@ function processIt(data, doTest, pretty){
 	// var data = JSON.parse(dataIn);
 	// console.log(JSON.stringify(data.lambda));
 	if(data.async) { // make sure the module is loaded if it is stated as require in the test case
-		var ajl = require("./jlambda-async.js");
+		var ajl = requirejs(__dirname+"/jlambda-async.js");
 	}
 	if(data.define) {// make sure the module is loaded if it is stated as require in the test case
-		var djl = require("./jlambda-define.js");
+		var djl = requirejs(__dirname+"/jlambda-define.js");
 	}
 	if(data.lambda && data.payload) {
 		var ctx = jlambda.context();
@@ -43,21 +47,21 @@ function processIt(data, doTest, pretty){
 						output = pretty? JSON.stringify(this.outp, null, 2) : JSON.stringify(this.outp);
 					}
 					try { process.stdout.write(output); }
-					catch(e) { 
-						console.error("Exception when outputing the results in jlsh.js ... "); 
-						console.error(e); 
-						console.log(this.outp); 
+					catch(e) {
+						console.error("Exception when outputing the results in jlsh.js ... ");
+						console.error(e);
+						console.log(this.outp);
 						console.error("Exception:" +e.toString());
 						process.exit(7);
 					}
 					process.exit(0);
-				
+
 				};
 
 			if(doTest) {
 				if(!_.isUndefined(data.expect)) {
 					var dataExpected = data.expect;
-					afterwards = function() { 
+					afterwards = function() {
 						if(this.failed) {
 							console.error(this.failures);
 							process.exit(77);
@@ -142,13 +146,13 @@ if(argv.h || argv.help) {
 
 // Process command line parameter for PROXY
 if(argv.proxy) {
-	var jlasync = require("./jlambda-async.js");
+	var jlasync = requirejs(__dirname +"/jlambda-async.js");
 	jlasync.addProxy(".",  argv.proxy);
 }
 
 // Process command line parameter for NETRC
 if(argv.netrc) {
-	var jlasync = require("./jlambda-async.js");
+	var jlasync = require(__dirname+"/jlambda-async.js");
 	var netrcJson = fs.readFileSync(argv.netrc);
 	var netrc = [];
 	try {
@@ -167,11 +171,11 @@ if(argv.netrc) {
 			}
 		});
 	}
-	
+
 }
 
 if(argv.defs) {
-	var jldef = require("./jlambda-define.js");
+	var jldef = requirejs(__dirname+"/jlambda-define.js");
 	jldef.loadGlobalDefinitions(argv.defs, "*");
 }
 
@@ -214,4 +218,3 @@ if(argv.lambda && argv.json) {
 		processIt(wholeJson, doTest,pretty);
 	});
 }
-

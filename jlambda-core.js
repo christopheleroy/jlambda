@@ -1,3 +1,6 @@
+
+define(function(require, exports, module) {
+
 var _ = require('lodash');
 
 
@@ -26,10 +29,10 @@ function assert(ctx, msg, test,op) {
 var context = function(data, mode, doneFN) {
 	var isArray = _.isArray(data);
 	var isScalar = _.isString(data) || _.isNumber(data);
-	
+
 
 	var failures = [];
-	if(_.isUndefined(mode) || _.isNull(mode)) { 
+	if(_.isUndefined(mode) || _.isNull(mode)) {
 		if(isArray) {
 			if(data.length>0) {
 				if(_.isArray(data[0])) {
@@ -51,7 +54,7 @@ var context = function(data, mode, doneFN) {
 			}
 		}else if(isScalar) {
 			mode = 'scalar';
-		}else if(_.isObject(data)) { 
+		}else if(_.isObject(data)) {
 			var hasArrays = hasObjects = hasScalars = false;
 			for(var key in data) {
 				if(_.isArray(data[key])) {
@@ -66,13 +69,13 @@ var context = function(data, mode, doneFN) {
 				}
 
 			}
-			
+
 			mode = hasArrays && (! (hasScalars || hasObjects) ) ? 'map' : (hasScalars || hasObjects ? 'object' : 'unsupported');
 			if(mode == 'unsupported') {
 				console.log("Unsupported mode for context:");
 				console.log(data);
 			}
-			
+
 		}else if(_.isUndefined(data)) {
 			data = [];
 			mode = 'stream';
@@ -87,7 +90,7 @@ var context = function(data, mode, doneFN) {
 		doneFN.bind(xx);
 		xx.done = doneFN;
 	}
-	
+
 	return xx;
 };
 exports.context = context;
@@ -118,7 +121,7 @@ function nullForFailure(ctx, failure) {
 }
 
 var makeDebugger = function(obj, ctx) {
-	
+
 	var FN1 = functionator(obj,ctx);
 	var FN0 = function(aCtx) {
 		debugger;
@@ -162,7 +165,7 @@ var makeZipper = function(obj, ctx) {
 			var maxLength = _.reduce(aCtx.inp, function(ml, list) { if(list && list.length && list.length>ml) ml = list.length; return ml; }, 0);
 			var outp = [];
 			for(var i = 0; i< maxLength; i++) {
-				var list=_.reduce(aCtx.inp, function(row, inpList) { 
+				var list=_.reduce(aCtx.inp, function(row, inpList) {
 					var val = repeat? inpList[ i % inpList.length ] : inpList[i];
 					row.push(val);
 					return row;
@@ -216,11 +219,11 @@ function makeExtractorStep(path,defaults) {
 	}else{
 		return function(x,ctx) { ctx.failed=true; ctx.failures.push("null step in extractor"); return null; }
 	}
-	
+
 }
 
 
-// how "spreading" will work with pluck ... 
+// how "spreading" will work with pluck ...
 function makeReduceSpreader(spreadKey) {
 	return function(list, item) {
 		if(!item) return list;
@@ -230,7 +233,7 @@ function makeReduceSpreader(spreadKey) {
 			delete template[spreadKey];
 			if(sublist.length==0) { // when list is empty, still put the item, but without the empty list
 				list.push(template);
-			}else{ // when the list is not empty, clone the template and inject the list item into the property 'spreadKey'				
+			}else{ // when the list is not empty, clone the template and inject the list item into the property 'spreadKey'
 				_.each(sublist, function(x) {
 					var instance = _.clone(template);
 					instance[spreadKey] = x;
@@ -254,7 +257,7 @@ var makePlucker = function (obj, ctx) {
 
 
 
-	
+
 	var plKey = obj.pluck;
 	var pickList = obj.pick;
 	var spreading = !!obj.spread
@@ -266,28 +269,28 @@ var makePlucker = function (obj, ctx) {
 	var spreader = spreading ? makeReduceSpreader(obj.spread) : null;
 
 	var isPlain = _.isString(plKey);
-	
+
 	var extractor = null;
 	if(pickList) {
 		var issue = null;
 		if(_.isArray(pickList) && pickList.length>0) {
 			if(_.isArray(plKey) && plKey.length ==0) {
 				var def = obj.defaults || {};
-				
+
 				extractor = function(x, aCtx) {
 					if(!_.isObject(x)) return null;
 					return _.reduce(pickList, function(m,k) {
 						m[k] = x[k]; return m;
 					}, _.clone(def));
 				};
-				
+
 			}else{
 				issue = "for pluck with option 'pick', the pluck value must be []...";
 			}
 		}else{
 			issue = "for pluck with option 'pick', the pick value must be an array of strings or positions";
 		}
-		if(issue) { 
+		if(issue) {
 			ctx.failed = true;
 			ctx.failures.push(issue);
 			return null;
@@ -296,10 +299,10 @@ var makePlucker = function (obj, ctx) {
 		var def = obj.defaults || {};
 		extractor = makeExtractorStep(plKey,def);
 	}
-	
-	
 
-	 var FN = function(aCtx) { 
+
+
+	 var FN = function(aCtx) {
 	 	aCtx = withFN(aCtx);
 		if(aCtx.failed) return aCtx;
 
@@ -307,7 +310,7 @@ var makePlucker = function (obj, ctx) {
 	 		if(isPlain) {
 				aCtx.outp = _.pluck(aCtx.inp, plKey);
 			}else{
-				aCtx.outp = _.map(aCtx.inp, function(x) { 
+				aCtx.outp = _.map(aCtx.inp, function(x) {
 					 return extractor(x, aCtx); });
 			}
 		}else if(aCtx.mode =='map' || aCtx.mode=='object') {
@@ -320,7 +323,7 @@ var makePlucker = function (obj, ctx) {
 			aCtx.failed = true;
 			aCtx.failures.push("pluck in scalar mode ("+aCtx.mode+") is not supported.");
 		}
-		if(spreading) { 
+		if(spreading) {
 			aCtx.outp = _.reduce(aCtx.outp, spreader, []);
 		}
 		return aCtx;
@@ -337,7 +340,7 @@ var makeChain = function(obj, ctx) {
 	if(ctx.failed) return null;
 
 
-	
+
 
 	if(_.isArray(obj.chain)) {
 		var funcs = _.map(obj.chain, function(f) { return functionator(f, ctx); });
@@ -362,7 +365,7 @@ var makeChain = function(obj, ctx) {
 				}
 				aCtx.outp = cctx.outp;
 			}
-			
+
 			return aCtx;
 		};
 		FN.isFunctionated = true;
@@ -404,20 +407,20 @@ var makeRenamer = function(obj, ctx) {
 				return iZ;
 			}
 		}:
-		
-		_.isString(remap) ? 
+
+		_.isString(remap) ?
 			function(iZ) {
 				var q = _.clone(def);
 				q[remap] = iZ;
 				return q;
 			} :
-			
-		_.isObject(remap) ? 	
-	
+
+		_.isObject(remap) ?
+
 	function(iZ) {
 		var Z = (doCloning? _.clone(iZ) : iZ);
 		_.each(remap, function(to,from) {
-			if(polite && (!_.isUndefined(Z[to]) || _.isUndefined(Z[from]))) 
+			if(polite && (!_.isUndefined(Z[to]) || _.isUndefined(Z[from])))
 				return; // skip
 			Z[ to ] = Z[from];
 			if(_.isUndefined(Z[to]) && defaults) {
@@ -428,7 +431,7 @@ var makeRenamer = function(obj, ctx) {
 		return Z;
    } :
    	null;
-	   
+
 	if(_.isNull(renamer)) {
 		ctx.failed = true;
 		ctx.failures.push("rename expects a map (json object), a single string or an array of strings");
@@ -437,7 +440,7 @@ var makeRenamer = function(obj, ctx) {
 
 
 	var FN = function(aCtx) {
-		
+
 		aCtx = withFN(aCtx);
 		if(aCtx.failed) return aCtx;
 
@@ -546,29 +549,29 @@ function isPickable(x, ctx) {
 
 
 var makeMelter = function(obj, ctx) {
-    
+
     var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
 	if(ctx.failed) return null;
 
-    
+
     var idKeys = obj.melt.id;
     var vars   = obj.melt.vars;
     var excludeVars = obj.melt.excludeVars;
     var includeByRegexp = obj.melt.includeByRegexp;
     var excludeByRegexp = obj.melt.excludeByRegexp;
     var names = obj.melt.names || ['var', 'val'];
-    
+
     if(_.isString(idKeys)) {
         idKeys = [ idKeys ];
     }
-    
-    
-    
+
+
+
     function lIndex(m,x) { m[x]=true;return m;}
     function cregx(regex, regexpname, ctx) {
         if(regex) {
             var rg1, rg2;
-            
+
             if(_.isArray(regex)) {
                 if(regex.length>2) {
                     ctx.failed = true;
@@ -591,24 +594,24 @@ var makeMelter = function(obj, ctx) {
         }
         return regex;
     }
-                
+
     excludeByRegexp = cregx(excludeByRegexp, "excludeByRegexp", ctx);
     includeByRegexp = cregx(includeByRegexp, "includeByRegexp",ctx);
     if(ctx.failed) return null;
-    
+
     var idInx = _.reduce(idKeys, lIndex,{});
     var excludeInx = excludeVars ? _.reduce(excludeVars, lIndex,{}) : null;
     var includeInx = vars ? _.reduce(vars, lIndex, {}) : null;
-    
+
     if(!(excludeInx||includeInx || excludeByRegexp || includeByRegexp)) { excludeInx = {}; }
-    
+
     var transform =function(masterList,X) {
         var z = _.reduce(idKeys, function(m,k) {
             m[k] = X[k];
             return m;
         },{});
         return _.reduce(X, function(L, v, k) {
-            if(idInx[k]) return L; 
+            if(idInx[k]) return L;
             if( (includeInx && includeInx[k]) ||
                 (excludeInx && !excludeInx[k]) ||
                 (includeByRegexp && k.match(includeByRegexp)) ||
@@ -621,21 +624,21 @@ var makeMelter = function(obj, ctx) {
             return L;
         },masterList);
     };
-    
+
     var FN = function(aCtx) {
         aCtx = withFN(aCtx);
         if(aCtx.failed) return aCtx;
-        
+
         if(aCtx.mode == 'stream') {
             aCtx.outp = _.reduce(aCtx.inp, transform, []);
         }else{
             aCtx.failed = true;
-            aCtx.failures.push("melt only supports streams, not " + 
+            aCtx.failures.push("melt only supports streams, not " +
                 aCtx.mode);
         }
         return aCtx;
     };
-    
+
     FN.isFunctionated = true;
     return FN;
 }
@@ -649,7 +652,7 @@ var makeCaster = function(obj, ctx) {
     var idKeys = obj.cast.id;
     var varKey = obj.cast.var || 'var';
     var valKey = obj.cast.val || 'val';
-    
+
     var keyMaker = null;
     if(_.isString(idKeys)) {
         idKeys = [ idKeys ];
@@ -663,14 +666,14 @@ var makeCaster = function(obj, ctx) {
             var c=idKeys[2];
             var d=idKeys[3];
             var e=idKeys[4];
-            keyMaker = len ==1 ? 
-                function(z) { return z[a];} : 
-                len ==2 ? 
+            keyMaker = len ==1 ?
+                function(z) { return z[a];} :
+                len ==2 ?
                 function(z) { return [z[a],z[b]].join("{|*|}"); } :
-                len ==3 ? 
+                len ==3 ?
                 function(z) { return [z[a],z[b], z[c]].join("{|*|}");} :
-                len ==4 ? 
-                function(z) { return [z[a],z[b], z[c], z[d] ].join("{|*|}");} : 
+                len ==4 ?
+                function(z) { return [z[a],z[b], z[c], z[d] ].join("{|*|}");} :
                 function(z) { return [z[a],z[b], z[c], z[d], z[e]].join("{|*|}");};
 
         }else{
@@ -684,26 +687,26 @@ var makeCaster = function(obj, ctx) {
     }else{
         ctx.failed = true;
         ctx.push("cast: id must be an array (and not an empty one)");
-    } 
-    
-    
+    }
+
+
     var FN = function(aCtx) {
         aCtx = withFN(aCtx);
         if(aCtx.failed) return aCtx;
-        
+
         if(aCtx.mode != 'stream') {
             aCtx.failed = true;
             aCtx.failures.push("cast: expected a stream, got a " + aCtx.mode);
             return aCtx;
         }
-        
+
         var inx = _.reduce(aCtx.inp, function(_inx, x) {
             var key = keyMaker(x);
             if(!_inx[key]) _inx[key] = [];
             _inx[key].push(x);
             return _inx;
         },{});
-        
+
         aCtx.outp = _.reduce(inx, function(masterList, list) {
             var x0  = list[0];
             var item = _.reduce(idKeys, function(it, k) {
@@ -723,29 +726,29 @@ var makeCaster = function(obj, ctx) {
         return aCtx;
     };
     FN.isFunctionated =true;
-    
+
     return FN;
-    
-    
-    
+
+
+
 }
 
 
- 
- 
+
+
 var makeTwoStep = function(obj,ctx) {
     // this operation will support the 'with:' wizardry
 	var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
 
     var first = obj.first;
     var then  = obj.then;
-    
+
     if(! (first && then)) {
         ctx.failed = true;
         ctx.failures.push("first/then: both are required ...");
         return null;
     }
-    
+
     first = functionator(first, ctx);
     if(ctx.failed) {
         ctx.failures.push("first: could not functionate...");
@@ -759,7 +762,7 @@ var makeTwoStep = function(obj,ctx) {
     var FN = function(aCtx) {
         aCtx = withFN(aCtx);
         if(aCtx.failed) return aCtx;
-        
+
         var bCtx = first(aCtx);
         if(bCtx.failed) return bCtx;
         var cCtx = context(bCtx.outp);
@@ -767,10 +770,10 @@ var makeTwoStep = function(obj,ctx) {
         aCtx.outp = cCtx.outp;
         return aCtx;
     };
-    
+
     FN.isFunctionated = true;
     return FN;
-} 
+}
 
 
 
@@ -784,7 +787,7 @@ var makeTwoStep = function(obj,ctx) {
 var makePicker = function(picks, ctx) {
 
 
-	
+
 	if(_.isArray(picks)) {
 		var bad = _.find(picks, function(x) { return !isPickable(x,ctx)});
 		if(bad || picks.length == 0) {
@@ -798,7 +801,7 @@ var makePicker = function(picks, ctx) {
 		var literalOne = _.find(picks, function(x) {return _.isObject(x) && _.isUndefined(x['$']) && ! _.isUndefined(x['#']); });
 		var stringOne = _.find(picks, function(x) { return _.isString(x); });
 
-		var failure = 
+		var failure =
 		  (lambdaOne && numberOne) ? 'lambda parameters and positional parameters' :
 		  (lambdaOne && stringOne) ? 'lambda parameters and field-name parameters' :
 		  (numberOne && stringOne ) ? 'positional parameters and field-name parameters' : null;
@@ -831,9 +834,9 @@ var makePicker = function(picks, ctx) {
 					// In streamset - build a new streamset, expanding literals (if any) to the max length of all streams.
 					// at this point, do not handle the case of streams of different length
 					if(aCtx.mode == 'streamset') {
-						var maxLength = _.reduce(picks, function(ml, i) { 
+						var maxLength = _.reduce(picks, function(ml, i) {
 							if(_.isNumber(i) && _.isArray(aCtx.inp[i])) {
-								return aCtx.inp[i].length > ml ? aCtx.inp[i].length : ml; 
+								return aCtx.inp[i].length > ml ? aCtx.inp[i].length : ml;
 							}else{
 								return ml;
 							}
@@ -843,8 +846,8 @@ var makePicker = function(picks, ctx) {
 							seedArray = mkSeedArray(maxLength, literalOne['#']);
 						}
 
-						var data = _.map(picks, function(i) { 
-							if(_.isNumber(i)) return aCtx.inp[i]; 
+						var data = _.map(picks, function(i) {
+							if(_.isNumber(i)) return aCtx.inp[i];
 							else if( !_.isUndefined(i['#'])  && literalOne) {
 								if(i['#'] == literalOne['#']) {
 									return seedArray;
@@ -890,7 +893,7 @@ var makePicker = function(picks, ctx) {
 				ctx.failures.push("Lambda symbols are not declared: " + badLambdas.join(", "));
 				return null;
 			}
-			
+
 
 			var FN = function(aCtx) {
 				var lambda = aCtx.lambda;
@@ -928,7 +931,7 @@ var makePicker = function(picks, ctx) {
 							return ml;
 						}, 0);
 						var seedArray = mkSeedArray(maxLength, literalOne['#']);
-						
+
 						data = _.map(dataPrep, function(dat, i) {
 							if(_.isObject(picks[i]) && !_.isUndefined(picks[i]['#'])) {
 								return (dat == literalOne['#'] ? seedArray : _.map(seedArray, function() { return dat; }));
@@ -938,7 +941,7 @@ var makePicker = function(picks, ctx) {
 						});
 					}
 				}
-				return nCtx = contextNewInput(data);				
+				return nCtx = contextNewInput(data);
 			};
 			return FN;
 		}else if(stringOne) { // pick stuff by fieldname
@@ -953,7 +956,7 @@ var makePicker = function(picks, ctx) {
 								return ch.literal ? ch.val : item[ch.val];
 							});
 						});
-						
+
 						return contextNewInput(aCtx, inp);
 					}else{
 						aCtx.failed = true;
@@ -1077,10 +1080,10 @@ function makeSampler(obj,ctx) {
     // this operation will support the 'with:' wizardry
 	var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
     if(ctx.failed) return null;
-    
+
     var sample = obj.sample || "first";
     var limit  = obj.limit || "1%";
-    
+
     var limitNumber = _.isNumber(limit) ? limit : 0;
     var limitFraction = 0;
     var m = (_.isString(limit) ? limit.match(/^(\d+)\s*\%$/) : null);
@@ -1090,13 +1093,13 @@ function makeSampler(obj,ctx) {
     if(!sample.match(/first|random|last/)) {
         return nullForFailure(ctx, "sample: only first, last, or random are supported");
     }
-    
+
     if(!(limitNumber || limitFraction)) {
         return nullForFailure(ctx, "sample: limit must be a number or a percentage (100 or 2%)");
     }
-    
-    var mFN = 
-        sample == 'first' || sample == 'last' ? 
+
+    var mFN =
+        sample == 'first' || sample == 'last' ?
             function(aCtx) {
                 aCtx = withFN(aCtx);
                 if(aCtx.mode == 'stream') {
@@ -1106,7 +1109,7 @@ function makeSampler(obj,ctx) {
                         return aCtx;
                     }
                     var lim = Math.ceil(limitNumber ? limitNumber: (sz*limitFraction));
-                    aCtx.outp = lim>sz ? _.clone(aCtx.inp) : 
+                    aCtx.outp = lim>sz ? _.clone(aCtx.inp) :
                         ((sample == 'first') ? _.take(aCtx.inp, lim) : _.takeRight(aCtx.inp, lim));
                 }else{
                     aCtx.outp = nullForFailure(aCtx, "sample: only stream mode is supported");
@@ -1143,16 +1146,16 @@ function makeSampler(obj,ctx) {
                 }
                 return aCtx;
             };
-            
-            
-        mFN.isFunctionated = true;    
+
+
+        mFN.isFunctionated = true;
 
     return mFN;
 }
 
 function miniSpecialOpsBase(obj,ctx) {
-    
-    
+
+
     if(obj.or || obj.and || obj.not) {
         if(obj.f || (obj.or && obj.and) ||
             (obj.or && obj.not) ||
@@ -1185,23 +1188,23 @@ function miniSpecialOpsBase(obj,ctx) {
            };
            return {fn:fn};
        }
-           
+
     }
     if(obj.f == 'missing?') { // this operation would work only with appropriate 'from' definition in the wrapper
         return {fn: function(x) { return _.isNull(x) || _.isUndefined(x); } };
     }
-    
+
     if(obj.f == '==') { // this operation would work only with appropriate 'from' definition in the wrapper
         var onFail = !! obj.onFail; // is test 'successful' (=true) when the input doesn't have enough arguments for the comparison...
         return {fn: function(x) { return _.isArray(x) && x.length>1 ? (x[0] == x[1]) : onFail;} };
     }
-    
+
  	if(obj.f) {
 		var baseF = obj.f == 'lower' ? function(x) { return x.toLowerCase() } :
 			obj.f == 'upper' ? function(x) { return x.toUpperCase();} :
-			obj.f == 'length' ? function(x) { return x ? x.length : undefined; } : 
-			obj.f == 'num' ? function(x) { return parseFloat(x); } : 
-			obj.f == 'empty' ? function(x) { return _.isNull(x) || _.isUndefined(x) || (_.isArray(x) && x.length == 0) ||(_.isObject(x) && _.keys(x).length ==0) } :  
+			obj.f == 'length' ? function(x) { return x ? x.length : undefined; } :
+			obj.f == 'num' ? function(x) { return parseFloat(x); } :
+			obj.f == 'empty' ? function(x) { return _.isNull(x) || _.isUndefined(x) || (_.isArray(x) && x.length == 0) ||(_.isObject(x) && _.keys(x).length ==0) } :
 			obj.f == 'not-empty' ? function(x) { return !(_.isNull(x) || _.isUndefined(x) || (_.isArray(x) && x.length == 0) ||(_.isObject(x) && _.keys(x).length ==0))} :
 			null;
 
@@ -1225,11 +1228,11 @@ function miniSpecialOpsBase(obj,ctx) {
                 };
             }else{
                 baseF =
-                    obj.f == '>n' ? function(x) { return x>N; } : 
-                    obj.f == '<n' ? function(x) { return x<N; } : 
-                    obj.f == '>=n' ? function(x) { return x>=N; } : 
-                    obj.f == '=<n' ? function(x) { return x<=N; } : 
-                    obj.f == '==n' ? function(x) { return x == N; }: 
+                    obj.f == '>n' ? function(x) { return x>N; } :
+                    obj.f == '<n' ? function(x) { return x<N; } :
+                    obj.f == '>=n' ? function(x) { return x>=N; } :
+                    obj.f == '=<n' ? function(x) { return x<=N; } :
+                    obj.f == '==n' ? function(x) { return x == N; }:
                     baseF;
             }
 		}
@@ -1282,7 +1285,7 @@ function miniSpecialOpsBase(obj,ctx) {
 				baseF = _.isUndefined(obj.replace) ?
 					function(x) { if(x) { return !!(x.toString().match(rgp)); } return false; } :
 					function(x) { if(x) return x.toString().replace(rgp, repl); return undefined; }
-			
+
 			}else{
 				ctx.failed = true;
 				ctx.failures.push("for f:regexp, the match parameter is required");
@@ -1291,10 +1294,10 @@ function miniSpecialOpsBase(obj,ctx) {
 		}
 		if(!baseF && obj.f == 'paste') {
 			var sep = obj.sep || '';
-			
+
 			var apply = obj.apply;
 			var mFN = null;
-			
+
 			if(apply) {
 				var applyIssues = [];
 				var applyArrays = _.reduce(apply, function(m, fields, from) {
@@ -1312,7 +1315,7 @@ function miniSpecialOpsBase(obj,ctx) {
 					ctx.failures.push("for f:paste, issue with 'apply' :" + applyIssues.join("; "));
 					return null;
 				}
-				
+
 				mFN = function(item) {
 					item = _.clone(item);
 					_.each(apply, function(fields, from) {
@@ -1321,7 +1324,7 @@ function miniSpecialOpsBase(obj,ctx) {
 							item[from] = inp.join(sep);
 						}else{
 							item[from] = (item[fields] && item[fields].join ? item[fields].join(sep) : item[fields]);
-						}						
+						}
 					});
 					return item;
 				}
@@ -1336,14 +1339,14 @@ function miniSpecialOpsBase(obj,ctx) {
 		if(!baseF) {
 			var ff = obj.f;
 			if(ff=='+' || ff=='*' || ff=='min' || ff == 'max' || ff == '-' || ff == '/' || ff == "||") {
-				var ops = 
+				var ops =
 					ff == '+'   ? { st: 0, red: function(x,y) { return x+y; } } :
-					ff == '*'   ? { st: 1, red: function(x,y) { return x*y; } } : 
-					ff == 'min' ? { st: null, red: function(x,y) {  return x==null ? y : ( x < y ? x : y); } } : 
-					ff == 'max' ? { st: null, red: function(x,y) { return x==null? y: (x>y ? x : y ); }} : 
+					ff == '*'   ? { st: 1, red: function(x,y) { return x*y; } } :
+					ff == 'min' ? { st: null, red: function(x,y) {  return x==null ? y : ( x < y ? x : y); } } :
+					ff == 'max' ? { st: null, red: function(x,y) { return x==null? y: (x>y ? x : y ); }} :
 					ff == '-'   ? { st: null, red: function(x,y) { return x==null? y : x-y; } } :
 					ff == '/'   ? { st: null, red: function(x,y) { return x==null ? y : x/y } }:
-					ff == "||"  ? { st: "",  red: function(x,y) { return x + y; } } : 
+					ff == "||"  ? { st: "",  red: function(x,y) { return x + y; } } :
 					null;
 				if(ops) {
 					var fst = ops.st;
@@ -1358,7 +1361,7 @@ function miniSpecialOpsBase(obj,ctx) {
         if(baseF) {
             return {fn: baseF};
         }
-        
+
         if(obj.f == 'id') {
             var mFN = function(item) {
                 return item;
@@ -1374,13 +1377,13 @@ function wrapMiniOperation(ops,ctx, valueNotTest) {
         var strConst = ops;
         return {fn: function() { return strConst;}, reductive:false};
     }
-    
-    
+
+
     if((_.isString(ops) || _.isNumber(ops)) && !valueNotTest) {
-        var _const = ops; 
+        var _const = ops;
         return {fn: function(x) { return x == _const}, reductive:false};
     }
-    
+
     var op = miniSpecialOpsBase(ops,ctx);
     if(!op) return nullForFailure(ctx, "mini-op could not be compiled: " + JSON.stringify(ops,null,1));;
     if(ops.from) {
@@ -1428,37 +1431,37 @@ var makeCaseWhenElse = function(obj, ctx) {
         }
         var ww = wrapMiniOperation(clause.when, ctx);
         var th = wrapMiniOperation(clause.then, ctx,true);
-        
+
         if(ctx.failed) {
             return nullForFailure(ctx, 'case: the clause could not compile: ' + JSON.stringify(clause));
         }
         list.push([ww,th]);
         return list;
-        
+
     },[]);
-    if(ctx.failed) { 
+    if(ctx.failed) {
         return null;
     }
-    
+
     var _else = wrapMiniOperation(obj.else, ctx,true);
     if(ctx.failed) {
         return null;
-    }    
-    
+    }
+
     var field = obj.field;
     if(!(_.isString(field) || _.isNull(field) || _.isUndefined(field))) {
         return nullForFailure(ctx, "case: field must be a string");
     }
-    
+
     var testOn = obj.testOn
     if(testOn && !_.isString(testOn)) {
         return nullForFailure(ctx, "case: testOn is a convenient shortcut, but we support only a single string for {case:.., testOn:...}");
     }
-    
-    
-    
+
+
+
     var cFN = function(item) {
-        
+
         var testItem = (testOn? (item? item[testOn]: item):item);// get the 'testOn' field if required (complexity of ? : is for safety)
         var hit = false;
         var qx = _.reduce(cases, function(val, _case) {
@@ -1480,11 +1483,11 @@ var makeCaseWhenElse = function(obj, ctx) {
         }
         return qx;
     };
-    
+
     var mFN = function(aCtx) {
         aCtx = withFN(aCtx);
         if(aCtx.failed) return aCtx;
-        
+
         if(aCtx.mode == 'streamset' || aCtx.mode == 'stream') {
             aCtx.outp = _.map(aCtx.inp, cFN);
         }else{
@@ -1492,7 +1495,7 @@ var makeCaseWhenElse = function(obj, ctx) {
         }
         return aCtx;
     };
-    
+
     mFN.isFunctionated = true;
     return mFN;
 
@@ -1527,22 +1530,22 @@ var makeSpecialOperation = function(obj, ctx) {
 		FN.isFunctionated = true;
 		return FN;
 	}
-    
-    
+
+
 	if(obj.f) {
 		var baseX = miniSpecialOpsBase(obj,ctx);
         if(!baseX) {
-            if(!ctx.failed) { 
+            if(!ctx.failed) {
                 return nullForFailure(ctx, "could nof interpret f:" + obj.f);
             }
             return null;
         }
-        
+
         if(baseX.direct) {
             return arrayfier(baseX.fn);
         }
-        
-        
+
+
         if(obj.apply && (obj.field || obj.fields)) {
             return nullForFailure(ctx, "f: cannot have both 'apply' and 'field(s)' applications");
         }
@@ -1577,9 +1580,9 @@ var makeSpecialOperation = function(obj, ctx) {
             };
             return arrayfier(mFNApplied);
         }
-        
+
         var baseF = baseX.fn;
-        if(obj.field || obj.fields) { 
+        if(obj.field || obj.fields) {
             var fields = obj.fields || obj.field;
             if(_.isArray(fields)) {
                 fields = _.reduce(fields, function(m,x) { m[x] = x; return m; }, {});
@@ -1591,8 +1594,8 @@ var makeSpecialOperation = function(obj, ctx) {
                 return nullForFailure("for f:" + obj.f + " the fields attribute ought to be a map");
             }
 
-            var mFN = function(item) { 
-                var x = _.clone(item); 
+            var mFN = function(item) {
+                var x = _.clone(item);
                 _.each(fields, function(to,from) {
                     x[to] = baseF(x[from]) });
                 return x;
@@ -1608,7 +1611,7 @@ var makeSpecialOperation = function(obj, ctx) {
                     return _.isNull(item)  ? baseF(null) : baseF(item[from]);
                 }
             };
-            
+
             return arrayfier(mFN);
         }else{
             var mFN = function(item) {
@@ -1616,7 +1619,7 @@ var makeSpecialOperation = function(obj, ctx) {
             };
             return arrayfier(mFN, !!baseX.reductive);
         }
-			
+
     }
     return null;
 }
@@ -1630,7 +1633,7 @@ function makeGrep(obj, ctx) {
 	if(ctx.failed) return null;
 
 
-	
+
 	var noGrep = _.isUndefined(grep);
 
 	grep = noGrep ? grep : functionator(grep, ctx);
@@ -1640,7 +1643,7 @@ function makeGrep(obj, ctx) {
 	}else if(select && !_.isObject(select)) {
 		ctx.failed = true;
 		ctx.failures.push("select: when specified, must be a list or a map");
-		return null;	
+		return null;
 	}
 
 
@@ -1708,7 +1711,7 @@ function makeAndOr(obj, ctx) {
 
 
 	var tests = _.isUndefined(OR)? AND : OR;
-	
+
 	if((!_.isUndefined(OR)) && (!_.isUndefined(AND))) {
 		return nullForFailure(ctx, "function can be both an or and and");
 	}
@@ -1717,17 +1720,17 @@ function makeAndOr(obj, ctx) {
 	var isOR = _.isUndefined(AND);
 	var isAND = ! isOR;
 
-	// how will we make all the ORs and ANDs after all is tested? 
+	// how will we make all the ORs and ANDs after all is tested?
 	// we will reduce them with the below reducer
-	var reducer = isOR ? 
+	var reducer = isOR ?
 		(!!skipUndef ? function(boolRed, bool_i) { if(_.isUndefined(bool_i) || _.isNull(bool_i) ){
-														return boolRed; 
+														return boolRed;
 													}else{
 														return boolRed || bool_i;
 													}
-						} : function(boolRed, bool_i) { return boolRed || bool_i; } ): 
+						} : function(boolRed, bool_i) { return boolRed || bool_i; } ):
 		(!!skipUndef ? function(boolRed, bool_i) { if(_.isUndefined(bool_i) || _.isNull(bool_i) ){
-														return boolRed; 
+														return boolRed;
 													}else{
 														return boolRed && bool_i;
 													}
@@ -1739,7 +1742,7 @@ function makeAndOr(obj, ctx) {
 	if(!_.isArray(tests)) {
 		return nullForFailure(ctx, (isOR ? "or: " : "and: ") + " operates on array of functionables only ");
 	}
-	
+
 	var testFNs = _.map(tests, function(t) { return functionator(t,ctx); });
 	if(ctx.failed) return null;
 
@@ -1808,7 +1811,7 @@ function makeConditional(obj, ctx) {
 			elsse = functionator(elsse, ctx) ;
 			// console.log(ctx);
 			if(!ctx.failed) {
-				var FN = function(aCtx) { 
+				var FN = function(aCtx) {
 					aCtx = withFN(aCtx);
 					if(aCtx.failed) return aCtx;
 
@@ -1855,7 +1858,7 @@ function makeConditional(obj, ctx) {
 
 var makeApplyer = function(obj, ctx) {
 	var applyArr = obj.apply;
-	
+
 	if(_.isObject(applyArr)) {
 		var applyMap = _.reduce(applyArr, function(mm,exp,name) {
 			var ctxx = context();
@@ -1868,16 +1871,16 @@ var makeApplyer = function(obj, ctx) {
 			}
 			return mm;
 		},{});
-		
+
 		if(ctx.failed) return null;
-			
+
 		var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
 		if(ctx.failed) return null;
-		
+
 		var zFN = function(aCtx) {
 			aCtx = withFN(aCtx);
 			if(aCtx.failed) return aCtx;
-			
+
 			if(aCtx.mode == 'stream' || aCtx.mode == 'streamset') {debugger;
 				var outp = _.map(aCtx.inp, function(item) {
 					var newItem = _.clone(item);
@@ -1902,7 +1905,7 @@ var makeApplyer = function(obj, ctx) {
 		};
 		zFN.isFunctionated = true;
 		return zFN;
-		
+
 	}else{
 		ctx.failures.push("apply: must be a map/object");
 		ctx.failed = true;
@@ -1926,10 +1929,10 @@ var makeLambda = function(obj, ctx) {
 			ctx.failures.push("lambda: the array must be only strings...");
 			return;
 		}
-		if(!ctx.lambda) { 
+		if(!ctx.lambda) {
 			ctx.lambda = _.reduce(lambda, function(m, x, i) { m[x] = i; return m;}, {});
 		}else{
-			_.each(lambda, function(x,i) { 
+			_.each(lambda, function(x,i) {
 				if(_.isUndefined(ctx.lambda[x])) {
 					ctx.lambda[x] = i;
 				}else{
@@ -1937,7 +1940,7 @@ var makeLambda = function(obj, ctx) {
 					ctx.failures.push("lambda: the variable " + x + " cannot be re-used");
 				}
 			});
-			if(ctx.failed) { 
+			if(ctx.failed) {
 				return null;
 			}
 		}
@@ -1969,7 +1972,7 @@ var makeLambda = function(obj, ctx) {
 		if(ctx.failed) return null;
 
 		var FN = function(aCtx) {
-			if(!aCtx.lambda) { 
+			if(!aCtx.lambda) {
 				aCtx.lambda = {};
 			}
 			aCtx.lambda[lambda] = aCtx.inp;
@@ -2024,13 +2027,13 @@ var makeReducer = function(obj, ctx) {
 	// this operation will support the 'with:' wizardry
 	var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : makePicker(obj.with, ctx);
 	if(ctx.failed) return null;
-	
+
 	if(obj.reduce == "union") {
 		var FN = function(aCtx) {
 			aCtx = withFN(aCtx);
 			if(aCtx.mode == 'streamset')  {
 				aCtx.outp = _.reduce(aCtx.inp, function(union, stream) {
-					if( _.isArray(stream) ) 
+					if( _.isArray(stream) )
 						return _.reduce(stream, function(U,item) {
 							U.push(item);return U;
 						},union);
@@ -2038,7 +2041,7 @@ var makeReducer = function(obj, ctx) {
 						union.push(stream);
 						return union;
 					}
-				},[]);				
+				},[]);
 			}else{
 				aCtx.outp = aCtx.inp;
 			}
@@ -2064,7 +2067,7 @@ var makeReducer = function(obj, ctx) {
 						return item;
 					}
 					var ctx = context([X,item], 'pair');
-					// console.log(ctx);	
+					// console.log(ctx);
 					var octx = redFN(ctx);
 
 					if(octx.failed) {
@@ -2111,7 +2114,7 @@ var functionator = function(obj,ctx) {
 	}
 
 
-	
+
 	var FN = null;
 
 	if(_.isArray(obj)) {
@@ -2137,7 +2140,7 @@ var functionator = function(obj,ctx) {
 			FN =  makeReducer(obj, ctx);
 		}else if(obj.if) {
 			FN = makeConditional(obj,ctx);
-		}else if(obj.join) { 
+		}else if(obj.join) {
 			FN =  makeJoiner(obj, ctx);
 		}else if(obj.chain) {
 			FN =  makeChain(obj, ctx);
@@ -2164,9 +2167,9 @@ var functionator = function(obj,ctx) {
 		}else if(obj.sample) {
             FN = makeSampler(obj, ctx);
         }
-	} 
-	if(FN != null) { 
-		FN._code_ = _.clone(obj); 
+	}
+	if(FN != null) {
+		FN._code_ = _.clone(obj);
 	}else{
 		ctx.failed = true;
 		ctx.failures.push("could not interpret " + (_.isArray(obj)? "array" : JSON.stringify(obj)));
@@ -2186,7 +2189,7 @@ var cartesian2 = function(a1, a2) {
 };
 exports.cartesian2 = cartesian2;
 
-var longCartesian = function(as, outer) { 
+var longCartesian = function(as, outer) {
 	var empty = _.isUndefined(as) || _.isNull(as) || as.length == 0;
 	if(empty) return [];
 	var empties = _.filter(as, function(x) { return _.isUndefined(x) || _.isNull(x) || x.length ==0 } );
@@ -2205,7 +2208,7 @@ var longCartesian = function(as, outer) {
 					return y;
 				});
 			}
-		}else{ 
+		}else{
 			if(i==1) {
 				// when 2nd array has no match - we still need convert to an array like in cartesian2
 				outs = _.map(outs, function(x) { return [ x, null ]; });
@@ -2213,7 +2216,7 @@ var longCartesian = function(as, outer) {
 		}
 	}
 
-	
+
 	return outs;
 };
 exports.longCartesian = longCartesian;
@@ -2221,7 +2224,7 @@ exports.longCartesian = longCartesian;
 // provide a function to merge outut of longCartesian into single objects
 function makeMerger(join, select) {
 	if(select) {
-        
+
         // select is expect of the form {"a":{"x":"xyz", "q":"abc"}, "b":{"y":"xyz", "r":"abc"}}  [form 1]
         // or {"a":{"x":"xyz", "q":"abc"}, "b":{"y":"xyz", "*":"*"} }                [form 2a]
         // or {"a":{"x":"xyz", "q":"abc"}, "b":{"y":"xyz", "*":["abc","cde"]} }      [form 2b]
@@ -2234,7 +2237,7 @@ function makeMerger(join, select) {
         // form 2b will use xyz, abc and cde attributes, names unchanged for abc and cde and xyz is renamed y
         // form 3a and 3b are similar to 2a and 2b, but instead "names unchanged", the name are prepended with ind_ (you'll get xyz, ind_abc, ind_cde  in form 3b)
         // form 4a and 4b are similar to 3a/3b but "appended" instead of "prepended"...
-        
+
         var selDigest = _.reduce(join, function(l, k, i) {
             var digest = _.reduce(select[k], function(m, from, to) {
                 var zz = null;
@@ -2278,9 +2281,9 @@ function makeMerger(join, select) {
              return l;
         },[]);
         debugger;
-        
+
 		return function(cartOuts) {
-			return _.map(cartOuts, function(outs){ 
+			return _.map(cartOuts, function(outs){
 				var out = {};
 				_.each(join, function(k,i) {
                     if(!outs[i]) return; // outs[i] has nothing to contribute...
@@ -2290,8 +2293,8 @@ function makeMerger(join, select) {
                     //         out[x] = outs[i][x];
                     //     });
                     // }
-                    
-                    
+
+
 					// _.each(sels, function(from,to){
                     //     if(to=='*' && _.isArray(from)) {
                     //         _.each(from, function(x) {
@@ -2303,7 +2306,7 @@ function makeMerger(join, select) {
 					// });
                     var selD = selDigest[i];
                     var outs_i = outs[i];
-                    
+
                     _.each(selD.directs, function(dg,to) {
                         out[to] = outs_i[ dg.from ];
                     });
@@ -2321,7 +2324,7 @@ function makeMerger(join, select) {
                             }
                         });
                     });
-                    
+
                     _.each(selD.stars, function(dg) {
                         _.each(outs_i, function(v,k) {
                             var kk = dg.prependWith + k + dg.appendWith;
@@ -2330,7 +2333,7 @@ function makeMerger(join, select) {
                             }
                         });
                     });
-                    
+
 				});
 				return out;
 			});
@@ -2356,7 +2359,7 @@ function makeJoiner(obj, ctx) {
 	var select = obj.select;
 	var onArray = obj.on;
 	var outer = !! obj.outer;
-	
+
 
 
 	// this operation will support the 'with:' wizardry
@@ -2368,10 +2371,10 @@ function makeJoiner(obj, ctx) {
 	assert(ctx, 'on must be an array', 'isArray', onArray);
 	if(select) assert(ctx, 'select must be a map', 'isMap', select);
 	if(ctx.failed) return null;
-	
+
 	// 1. all members of select must be names that are in join
-	var selectKeys = _.keys(select); 
-	assert(ctx, 'select must use keys from join', 
+	var selectKeys = _.keys(select);
+	assert(ctx, 'select must use keys from join',
 		_.intersection(selectKeys, join).length == _.min([join.length, selectKeys.length]));
 	if(ctx.failed) return null;
 
@@ -2383,10 +2386,10 @@ function makeJoiner(obj, ctx) {
 	assert(ctx, 'input data must be an array (of arrays)', 'isArray', ctx.inp);
 	if(ctx.failed) return null;
 
-	
+
 	//4. all members of 'on' must be functionable
 	var onAll = function(aCtx) { aCtx.outp = "**"; return aCtx; }; onAll.isFunctionated = true; //onAll is a functionated function that always generate the same join key
-	var keyCalculators = onArray == '**' ? _.map(join, function(x) { return onAll }): 
+	var keyCalculators = onArray == '**' ? _.map(join, function(x) { return onAll }):
 	                                       _.map(onArray, function(on) { return functionator(on, ctx); });
 
 	// are there null functionated ? I mean - did we fail for at least ?
@@ -2446,3 +2449,4 @@ exports.examples = {
 	'clint': [ { U: "joe", age: 16}, {U: "mark", age: 45 }, {U: "zabou", age:29}, {U:"dave", age: 8} ],
 	'barb': [ { user: "joe", city: 'Chicago'}, {user: "dave", city: 'Boston' }, {user: 'zabou', city: 'Paris'}, { user: 'mark', city: 'London'}]
 };
+});

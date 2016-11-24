@@ -1,4 +1,6 @@
 
+define(function(require,exports, modules) {
+
 var _ = require("lodash");
 
 exports.makeReportsDef = function(columns) {
@@ -23,7 +25,7 @@ exports.convertJSONToHTML = function(json,reportDef) {
     value = value.toString();
     return th ? "<th>"+value+"</th>": "<td>"+value+"</td>";
   }
-  
+
   var columnNames = _.pluck(reportDef, 'cn');
   var headerRow = _.map(reportDef, function(C) {
     if(C.lbl) {
@@ -38,9 +40,9 @@ exports.convertJSONToHTML = function(json,reportDef) {
       var row = (_.map(columnNames, function(col) {
         return tableCell(record[col]);
       })).join("");
-      resultsString += "<tr>"+row+"</tr>\n";    
+      resultsString += "<tr>"+row+"</tr>\n";
   });
-  return resultsString + "</table>\n";  
+  return resultsString + "</table>\n";
 }
 
 exports.convertJSONToCSV = function (json, reportDef, sep) {
@@ -78,13 +80,13 @@ exports.convertJSONToCSV = function (json, reportDef, sep) {
             var line = '';
            _.each(columnNames, function(key, i)
            {
-           
+
             if (line != '' || i>0) {
                 line += sep;
             }
-         
+
             if (record[key] != null && record[key] != undefined) {
-              line += csvCell(record[key],rgxp);                
+              line += csvCell(record[key],rgxp);
              }else{
 
              }
@@ -95,3 +97,5 @@ exports.convertJSONToCSV = function (json, reportDef, sep) {
 
   return resultsString;
 }
+
+});

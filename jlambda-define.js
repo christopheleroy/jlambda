@@ -1,3 +1,5 @@
+define(function(require, exports, module) {
+
 var _ = require("lodash");
 var jlambda = require("./jlambda-core.js");
 
@@ -17,9 +19,9 @@ jlambda.addPrefunctionator(
 		}
 		if(obj.exec) {
 			if(obj.exec.match(/^\//)) {
-				
+
 				var lFN = ctx._defs_[ obj.exec ];
-				if(!lFN) { 
+				if(!lFN) {
 					ctx.failed = true;
 					ctx.failures.push("exec: " + obj.exec + " is not previously defined.");
 					return null;
@@ -32,14 +34,14 @@ jlambda.addPrefunctionator(
 				var FN = function(aCtx) {
 					aCtx = withFN(aCtx);
 					if(aCtx.failed) return aCtx;
-					
+
 					return lFN(aCtx);
 				};
 				FN.isFunctionated = true;
 				FN.isAsynchronous = !! lFN.isAsynchronous;
-				
+
 				return FN;
-				
+
 			}else{
 				var qname =obj.exec;
 				var withFN = _.isUndefined(obj.with) ? function(x) { return x; } : jlambda.makePicker(obj.with, ctx);
@@ -47,10 +49,10 @@ jlambda.addPrefunctionator(
 					ctx.failures.push("exec: with is poorly defined ...");
 					return null;
 				}
-				
+
 				var isAsync = (qname.match("@"));
                 var thenFN = null;
-                
+
                 if(obj.then) {
                     thenFN = jlambda.functionator(ctx, obj.then);
                     if(thenFN && !isAsync) {
@@ -59,7 +61,7 @@ jlambda.addPrefunctionator(
                     }
                     if(ctx.failed) return null;
                 }
-				
+
 				var FN = function(aCtx) {
 					var lFN = __global_definitions__[ qname ];
 					if(lFN) {
@@ -82,8 +84,8 @@ jlambda.addPrefunctionator(
                         //     }else{
                         //         var bCtx = jlambda.context(cCtx.outp, aCtx.done);
                         //         bCtx.cookies = aCtx.cookies;
-                                
-                                
+
+
                         //     }
                         // }
 						return lFN(aCtx);
@@ -93,13 +95,13 @@ jlambda.addPrefunctionator(
 					}
 					return aCtx;
 				};
-				
+
 				FN.isFunctionated = true;
 				FN.isAsynchronous = isAsync;
 				return FN;
 			}
 		}else{
-			
+
 			var definitions = obj.define;
 			var newGlobalDefs = {};
 			_.each(definitions, function(def, qname) {
@@ -153,7 +155,7 @@ jlambda.addPrefunctionator(
 					}
 				}
 			});
-			if(ctx.failed) { 
+			if(ctx.failed) {
 				return null;
 			}
 			// add to global defs now that everything is ok
@@ -164,22 +166,22 @@ jlambda.addPrefunctionator(
 				return null;
 			}
 			return zFN;
-			
+
 		}
 	});
-	
-	
-	
-	
+
+
+
+
 function loadGlobalDefinitions(src, allApps, appMap, fs, depthMax) {
-	
-	
+
+
 	var srcType = fs.statSync(src);
 	if(srcType.isDirectory()) {
 		var files = fs.readdirSync(src);
 		_.each(files, function(f) {
 			var fType = fs.statSync(src + "/"+f);
-			
+
 			if(fType.isFile() && f.match(/\.json$/i)) {
 				loadGlobalDefinitions(src + "/" + f, allApps, appMap, fs, depthMax);
 			}else{
@@ -189,7 +191,7 @@ function loadGlobalDefinitions(src, allApps, appMap, fs, depthMax) {
 			}
 		});
 	}else{
-		
+
 		try {
 			var content = fs.readFileSync(src, {encoding:'utf-8'});
 			var json = JSON.parse(content);
@@ -213,12 +215,12 @@ function loadGlobalDefinitions(src, allApps, appMap, fs, depthMax) {
 			console.log(e);
 		}
 	}
-	
+
 }
 
 exports.loadGlobalDefinitions = function(src, apps) {
 	var fs = require("fs");
-	
+
 	if(apps == "*") {
 		loadGlobalDefinitions(src, true, {}, fs, 3);
 	}else{
@@ -226,3 +228,5 @@ exports.loadGlobalDefinitions = function(src, apps) {
 		loadGlobalDefinitions(src, false, appMap, fs, 4);
 	}
 }
+
+});

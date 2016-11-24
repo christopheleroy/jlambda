@@ -1,10 +1,11 @@
-var jLambda   = require("./jlambda-core.js");
-var ajl       = require("./jlambda-async.js");
+var requirejs = require("requirejs");
+var jLambda   = requirejs(__dirname + "/jlambda-core.js");
+var ajl       = requirejs(__dirname +"/jlambda-async.js");
 var express   = require("express");
 var parseArgs = require("minimist");
 var _         = require("lodash");
 var cookieParser = require("cookie-parser");
-var uti = require("./uti-convert.js");
+var uti = requirejs(__dirname+"/uti-convert.js");
 
 
 var jlsrv = express();
@@ -63,7 +64,7 @@ if(argv.cookie) {
             done.message = "Key is too short";
         }
         res.set('Content-type', 'application/json');
-        res.status(200).send(JSON.stringify(done, null, 1));  
+        res.status(200).send(JSON.stringify(done, null, 1));
     });
 }
 
@@ -83,8 +84,8 @@ jlsrv.get("/jlambda", function(req,res) {
 	if(!noDecode) {
 		lambdaJson = lambdaJson.replace(/%3A/g,":").replace(/%2F/g, "/").replace(/%22/g,'"');
 	}
-    
-    
+
+
     if(zParam) {
         var ckj = COOKIE_JAR_INDEX[zParam];
         var now = (new Date()).getTime();
@@ -93,7 +94,7 @@ jlsrv.get("/jlambda", function(req,res) {
                 cookies = _.clone(ckj.cookies);
             }
         }
-        
+
         var expired = _.reduce(COOKIE_JAR_INDEX, function(list, ckj, key) {
             if(ckj.expiration < now) {
                 list.push(key);
@@ -191,10 +192,10 @@ jlsrv.get("/jlambda", function(req,res) {
 	if(FN.isAsynchronous) {
 		execCtx = jLambda.context(payload, null, afterwards);
 		execCtx.cookies = cookies;
-		FN(execCtx);	
+		FN(execCtx);
 	}else{
 		execCtx = jLambda.context(payload)
-		execCtx.cookies = cookies; 
+		execCtx.cookies = cookies;
 		var out = FN(execCtx);
 		(afterwards.bind(out))();
 	}
@@ -226,10 +227,7 @@ function configureAsyncJlambda(argv) {
 
 function configureGlobalDefinitions(argv) {
 	if(argv.defs) {
-		var djl = require("./jlambda-define.js");
-		djl.loadGlobalDefinitions(argv.defs, "*");		
+		var djl = requirejs(__dirname+"/jlambda-define.js");
+		djl.loadGlobalDefinitions(argv.defs, "*");
 	}
 }
-
-
-
